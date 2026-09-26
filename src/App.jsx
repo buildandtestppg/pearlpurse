@@ -414,6 +414,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [feeRate, setFeeRate] = useState(null);
+  const [feeMode, setFeeMode] = useState("std"); // slow 0.8x · std 1x · fast 1.5x
   const [stage, setStage] = useState("form"); // form | review | sending | sent
   const [hex, setHex] = useState(null);
   const [err, setErr] = useState("");
@@ -433,16 +434,19 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
   // 1-in/2-out ≈ 141 vB, 1-in/1-out ≈ 110 vB; +8% safety margin.
   const vbytes = 2 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4); // outputs+overhead+input+witness
   const oneOutVb = 1 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4);
-  const rateAtoms = feeRate ? BigInt(Math.round(feeRate * 1e8)) : 0n; // atoms per kB
+  const FEE_MULT = { slow: 0.8, std: 1, fast: 1.5 };
+  const effRate = feeRate ? feeRate * FEE_MULT[feeMode] : null;
+  const rateAtoms = effRate ? BigInt(Math.round(effRate * 1e8)) : 0n; // atoms per kB
   const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + 1400n; // +dust-buffer for rounding
   const [feeAtoms, setFeeAtoms] = useState(0n);
-  useEffect(() => { if (feeRate) setFeeAtoms(feeFor(vbytes)); }, [feeRate]);
+  useEffect(() => { if (effRate) setFeeAtoms(feeFor(vbytes)); }, [effRate, feeMode]);
 
   const build = () => {
     const d = decodePearlAddress(to.trim());
     if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
     if (amtAtoms <= 0n) throw new Error("Enter an amount");
-    if (amtAtoms + feeAtoms > balance) throw new Error("Amount + fee exceeds balance");
+    if (feeAtoms >= balance) throw new Error(`Balance too low: network fee is ~${fmt(feeAtoms)} PRL but balance is ${fmt(balance)} PRL`);
+    if (amtAtoms + feeAtoms > balance) throw new Error(`Amount + fee (${fmt(amtAtoms + feeAtoms)} PRL) exceeds balance (${fmt(balance)} PRL)`);
     const seed = mnemonicToSeedSync(wallet.mnemonic);
     const root = HDKey.fromMasterSeed(seed);
     const privCache = new Map();
@@ -489,7 +493,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
             <div className="kv"><span className="k">To</span><span className="mono" style={{ fontSize: 11 }}>{short(to)}</span></div>
             <div className="kv"><span className="k">Amount</span><span>{fmt(amtAtoms)} PRL</span></div>
             <div className="kv"><span className="k">Fee</span><span>{fmt(feeAtoms)} PRL</span></div>
-            <div className="kv"><span className="k">Rate</span><span className="mono">{feeRate?.toFixed(5)} PRL/kB</span></div>
+            <div className="kv"><span className="k">Rate</span><span className="mono">{effRate?.toFixed(5)} PRL/kB ({feeMode})</span></div>
           </div>
           {err && <div className="err">{err}</div>}
           <div className="row2 mt16">
@@ -507,10 +511,23 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
             <label>Amount (PRL)</label>
             <input className="input" type="number" inputMode="decimal" step="0.0001" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
           </div>
-          <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "4px 2px 12px" }}>
+          <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "4px 2px 4px" }}>
             <span>Available: {fmt(balance)} PRL</span>
             <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => setAmount(((balance - feeFor(oneOutVb)) / ATOM).toString())}>MAX</button>
           </div>
+          <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "0 2px 12px" }}>
+            <span>Fee: {feeAtoms ? fmt(feeAtoms) : "…"} PRL</span>
+            <span style={{ display: "inline-flex", gap: 4 }}>
+              {[["slow","🐢 Slow"],["std","⚡ Std"],["fast","🚀 Fast"]].map(([m,label]) => (
+                <button key={m} className={"btn ghost small" + (feeMode===m ? " on" : "")} style={{ padding: "4px 8px" }} onClick={() => setFeeMode(m)}>{label}</button>
+              ))}
+            </span>
+          </div>
+          {feeAtoms && feeAtoms >= balance && (
+            <div className="err" style={{ marginBottom: 12 }}>
+              Can't send — network fee (~{fmt(feeAtoms)} PRL) is at or above your balance ({fmt(balance)} PRL). Top up this address to make it spendable.
+            </div>
+          )}
           {err && <div className="err">{err}</div>}
           <button className="btn primary" onClick={() => {
             setErr("");
