@@ -7,6 +7,7 @@ import { schnorr } from "@noble/curves/secp256k1";
 import { addressFromPriv, derivePriv, decodeBech32m, buildTx, PEARL } from "./lib/pearl.js";
 import { fetchWalletData, broadcastTx, getEstimateFee } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
+import { seal, unseal } from "./lib/vault.js";
 
 const ATOM = 100_000_000n;
 const fmt = (a) => {
@@ -26,13 +27,32 @@ const store = {
 
 export default function App() {
   const [wallet, setWallet] = useState(null); // {mnemonic, address, index}
+  const [locked, setLocked] = useState(false);
+  const [unlockPw, setUnlockPw] = useState("");
+  const [unlockErr, setUnlockErr] = useState("");
+  const [unlockBusy, setUnlockBusy] = useState(false);
+  const [lastActive, setLastActive] = useState(Date.now());
   const [data, setData] = useState(null);
   const [sheet, setSheet] = useState(null); // 'create' | 'import' | 'send' | 'receive' | 'settings'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
-  useEffect(() => { const w = store.load(); if (w) setWallet(w); }, []);
+  useEffect(() => {
+    const w = store.load();
+    if (!w) return;
+    if (w.vault) setLocked(true);
+    else setWallet(w); // legacy plaintext (dev only) — wiped on next save
+  }, []);
+
+  // auto-lock after 5 min idle
+  useEffect(() => {
+    if (!wallet) return;
+    const bump = () => setLastActive(Date.now());
+    window.addEventListener("pointerdown", bump);
+    const t = setInterval(() => { if (Date.now() - lastActive > 5 * 60_000) { setWallet(null); setLocked(true); } }, 15_000);
+    return () => { window.removeEventListener("pointerdown", bump); clearInterval(t); };
+  }, [wallet, lastActive]);
   useEffect(() => {
     if (!wallet) return;
     let live = true;
@@ -49,26 +69,56 @@ export default function App() {
 
   const notify = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
 
+  const doUnlock = async () => {
+    setUnlockBusy(true); setUnlockErr("");
+    try {
+      const saved = store.load();
+      const m = await unseal(saved.vault, unlockPw);
+      setWallet({ mnemonic: m, address: saved.address, index: saved.index ?? 0 });
+      setLocked(false); setUnlockPw(""); setLastActive(Date.now());
+    } catch {
+      setUnlockErr("Wrong password (or corrupted vault)");
+    } finally { setUnlockBusy(false); }
+  };
+
+  if (locked) {
+    return (
+      <div className="app">
+        <div className="welcome">
+          <img className="logo-big" src="/pearl.svg" alt="" />
+          <h1>🔒 PearlPurse</h1>
+          <p>Enter your password to unlock.</p>
+          <div className="field">
+            <input className="input" type="password" value={unlockPw} onChange={(e) => setUnlockPw(e.target.value)}
+              placeholder="Password" onKeyDown={(e) => e.key === "Enter" && doUnlock()} />
+          </div>
+          {unlockErr && <div className="err">{unlockErr}</div>}
+          <button className="btn primary" disabled={unlockBusy} onClick={doUnlock}>{unlockBusy ? "Decrypting…" : "Unlock"}</button>
+          <button className="btn ghost" onClick={() => { if (confirm("Wipe vault? You'll need the 12-word seed to restore.")) { store.clear(); location.reload(); } }}>Forgot password</button>
+        </div>
+      </div>
+    );
+  }
+
   if (!wallet) {
     return (
       <Welcome
-        onCreate={async () => {
-          const m = entropyToMnemonic(crypto.getRandomValues(new Uint8Array(16)), wordlist);
+        onCreate={async (m, pw) => {
           const seed = mnemonicToSeedSync(m);
           const root = HDKey.fromMasterSeed(seed);
           const priv = derivePriv(root, 0);
           const address = addressFromPriv(priv);
-          const w = { mnemonic: m, address, index: 0 };
-          store.save(w); setWallet(w);
+          store.save({ vault: await seal(m, pw), address, index: 0, ts: Date.now() });
+          setWallet({ mnemonic: m, address, index: 0 });
         }}
-        onImport={async (m) => {
-          if (!validateMnemonic(m)) throw new Error("Invalid mnemonic (wordlist/length/checksum)");
+        onImport={async (m, pw) => {
+          if (!validateMnemonic(m, wordlist)) throw new Error("Invalid mnemonic (wordlist/length/checksum)");
           const seed = mnemonicToSeedSync(m);
           const root = HDKey.fromMasterSeed(seed);
           const priv = derivePriv(root, 0);
           const address = addressFromPriv(priv);
-          const w = { mnemonic: m, address, index: 0 };
-          store.save(w); setWallet(w);
+          store.save({ vault: await seal(m, pw), address, index: 0, ts: Date.now() });
+          setWallet({ mnemonic: m, address, index:  0 });
         }}
       />
     );
@@ -166,6 +216,10 @@ function Welcome({ onCreate, onImport }) {
   const [created, setCreated] = useState("");
   const [copied, setCopied] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [pw, setPw] = useState("");
+  const [pw2, setPw2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const pwOk = pw.length >= 8 && pw === pw2;
 
   return (
     <div className="app">
@@ -181,10 +235,15 @@ function Welcome({ onCreate, onImport }) {
               <textarea className="input mono" rows={3} value={mnemonic} onChange={(e) => setMnemonic(e.target.value)} placeholder="word word word …" />
             </div>
             {err && <div className="err">{err}</div>}
-            <button className="btn primary" onClick={async () => {
-              setErr("");
-              try { await onImport(mnemonic.trim()); } catch (e) { setErr(e.message); }
-            }}>Import wallet</button>
+            <div className="field"><label>Encryption password (min 8)</label>
+              <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
+            {pw.length > 0 && pw !== pw2 && <div className="small" style={{ color: "#e5958f" }}>Passwords do not match</div>}
+            <div className="field"><label>Confirm password</label>
+              <input className="input" type="password" value={pw2} onChange={(e) => setP2b(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
+            <button className="btn primary" disabled={!pwOk || busy} onClick={async () => {
+              setBusy(true); setErr("");
+              try { await onImport(mnemonic.trim(), pw); } catch (e) { setErr(e.message); setBusy(false); }
+            }}>{busy ? "Importing…" : "Import wallet"}</button>
             <button className="btn ghost" onClick={() => setMode(null)}>Back</button>
           </>
         ) : mode === "create" ? (
@@ -196,7 +255,20 @@ function Welcome({ onCreate, onImport }) {
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
               I've saved my seed phrase somewhere safe
             </label>
-            <button className="btn primary" disabled={!confirmed} onClick={() => onCreate(created)}>Open wallet</button>
+            {confirmed && (
+              <>
+                <div className="field"><label>Encryption password (min 8)</label>
+                  <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
+                {pw.length > 0 && pw !== pw2 && <div className="small" style={{ color: "#e5958f" }}>Passwords do not match</div>}
+                {pw.length > 0 && pw.length < 8 && <div className="small" style={{ color: "#e5958f" }}>Minimum 8 characters</div>}
+                <div className="field"><label>Confirm password</label>
+                  <input className="input" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
+              </>
+            )}
+            <button className="btn primary" disabled={!confirmed || !pwOk || busy} onClick={async () => {
+              setBusy(true); setErr("");
+              try { await onCreate(created, pw); } catch (e) { setErr(e.message); setBusy(false); }
+            }}>{busy ? "Encrypting…" : "Open wallet"}</button>
           </>
         ) : (
           <>

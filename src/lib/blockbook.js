@@ -1,7 +1,7 @@
 // Blockbook client — browser talks via CORS relay, Node (tests) goes direct.
 const DIRECT = "https://blockbook.pearlresearch.ai/api/v2";
-const RELAY = "https://pearlpurse-relay.cautious-pet.workers.dev";
-const PROXY = import.meta.env?.DEV ? "/api/v2" : RELAY + "/api/v2";
+const RELAY = "/api/v2"; // same-origin Vercel function (permanent, no CORS)
+const PROXY = RELAY;
 
 function base() {
   return typeof window === "undefined" ? DIRECT : PROXY;
