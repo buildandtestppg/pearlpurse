@@ -58,9 +58,6 @@ ok("import derives canonical address", addressFromPriv(p2) === "prl1pr6yuq8u2r95
 const b = await fetch(`${RELAY}/sendtx`, { method: "POST", body: "deadbeef" });
 ok("relay /sendtx reachable", b.status === 400 || b.status === 200 || (await b.text()).includes("error"));
 
-console.log(`\n${pass} passed, ${fail} failed`);
-process.exit(fail ? 1 : 0);
-
 // ---- activity display: net-per-wallet, never whole-tx total ----
 {
   const t = {
@@ -79,3 +76,8 @@ process.exit(fail ? 1 : 0);
   ok("tiny receive shows 0.0001 not 440.27", recv === 10000n && spent === 0n);
   ok("coinbase-style (no sender) maps in", true);
 }
+
+console.log(`\n${pass} passed, ${fail} failed`);
+process.exit(fail ? 1 : 0);
+
+
