@@ -45,8 +45,13 @@ export async function broadcastTx(hex) {
 }
 
 export async function getBlockHeight() {
-  const r = await get("/block-index/1"); // last block
-  return { hash: r.blocks?.[0]?.hash ?? r.blockHash ?? null };
+  // blockbook status endpoint carries the tip (block-index/<n> is height-addressed;
+  // block-index/1 would return the block at height 1, not the tip).
+  const r = await get("/");
+  return {
+    height: r.blockbook?.bestHeight ?? r.backend?.blocks ?? null,
+    hash: r.blockbook?.bestHash ?? r.backend?.bestBlockHash ?? null,
+  };
 }
 
 // net amount of a tx for OUR address set (atoms, string): received − spent

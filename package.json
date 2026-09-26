@@ -16,7 +16,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test/vectors.test.mjs && node test/system.test.mjs && node test/security.test.mjs && node test/vault.test.mjs && node test/rotation.test.mjs",
+    "test": "node test/vectors.test.mjs && node test/system.test.mjs && node test/security.test.mjs && node test/vault.test.mjs && node test/rotation.test.mjs && node test/fee.test.mjs",
     "test:ui": "python3 scripts/ui_smoke.py"
   },
   "dependencies": {

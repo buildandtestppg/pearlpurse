@@ -4,7 +4,7 @@ import { wordlist } from "@scure/bip39/wordlists/english";
 import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
-import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
+import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, txVBytes, PEARL } from "./lib/pearl.js";
 import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, explorerTx, explorerAddr } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
@@ -430,10 +430,11 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
     return BigInt(amount.trim().split(".")[0] + frac);
   })();
 
-  // fee: taproot vBytes — witness bytes count 1/4 (segwit discount).
-  // 1-in/2-out ≈ 141 vB, 1-in/1-out ≈ 110 vB; +8% safety margin.
-  const vbytes = 2 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4); // outputs+overhead+input+witness
-  const oneOutVb = 1 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4);
+  // fee: taproot vBytes via txVBytes() (witness bytes count 1/4, segwit discount).
+  // Form-stage display assumes the common 1-in/2-out shape; build() below
+  // recomputes the fee for the actual input count during coin selection.
+  const vbytes = txVBytes(1, 2);   // 154 vB
+  const oneOutVb = txVBytes(1, 1); // 111 vB
   const FEE_MULT = { slow: 0.8, std: 1, fast: 1.5 };
   const effRate = feeRate ? feeRate * FEE_MULT[feeMode] : null;
   const rateAtoms = effRate ? BigInt(Math.round(effRate * 1e8)) : 0n; // atoms per kB
@@ -454,15 +455,29 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
       if (!privCache.has(idx)) privCache.set(idx, derivePriv(root, idx));
       return privCache.get(idx);
     };
-    // pick UTXOs across ALL discovered addresses (largest-first until covered)
+    // fee for a given tx shape: ceil(rate × vbytes / 1000) + dust-buffer
+    const feeForShape = (nIn, nOut) => {
+      const vb = BigInt(txVBytes(nIn, nOut));
+      return rateAtoms * vb / 1000n + (rateAtoms * vb % 1000n > 0n ? 1n : 0n) + 1400n;
+    };
+    // pick UTXOs across ALL discovered addresses (largest-first until covered),
+    // recomputing the fee for the actual input count as we go — a fixed fee
+    // estimate underpays every input past the first (~57 vB each).
     const sorted = [...utxos].sort((a, b) => Number(BigInt(b.value) - BigInt(a.value)));
     const picked = [];
-    let sum = 0n;
-    for (const u of sorted) { picked.push(u); sum += BigInt(u.value); if (sum >= amtAtoms + feeAtoms + 546n) break; }
-    if (sum < amtAtoms + feeAtoms) throw new Error("Not enough UTXOs");
-    let change = sum - amtAtoms - feeAtoms;
-    // sub-dust change folds into fee (bounded by 545 atoms — explicit, tiny)
-    if (change > 0n && change < 546n) change = 0n;
+    let sum = 0n, fee = feeForShape(1, 2);
+    for (const u of sorted) {
+      picked.push(u);
+      sum += BigInt(u.value);
+      fee = feeForShape(picked.length, 2); // assume a change output while selecting
+      if (sum >= amtAtoms + fee + 546n) break;
+    }
+    if (sum < amtAtoms + fee) throw new Error("Not enough UTXOs");
+    // sub-dust change folds into the fee instead of creating a dust output
+    // (bounded by ~546 + one output's fee ≈ 23k atoms); the fee-rate invariant
+    // actual-fee ≥ feeForShape(final shape) holds on both paths.
+    let nOut = 2, change = sum - amtAtoms - fee;
+    if (change < 546n) { nOut = 1; change = 0n; fee = feeForShape(picked.length, 1); }
     const inputs = picked.map((u) => ({ txid: u.txid, vout: u.vout, value: Number(BigInt(u.value)), xOnlyPub: null, priv: keyFor(u.index ?? wallet.index) }));
     const outputs = [{ xOnlyPub: d.program, value: Number(amtAtoms) }];
     if (change >= 546n) outputs.push({ xOnlyPub: tweakXOnlyPub(schnorr.getPublicKey(keyFor(wallet.index))).tweakedX, value: Number(change) });

@@ -69,7 +69,7 @@ Deploy target is Vercel (`vercel.json`, Node 22 for the api fns). `deploy.sh` sh
 - [ ] Post-quantum XMSS address support (Pearl's optional PQ scheme)
 - [ ] SPV / trustless balance verification
 - [ ] P2P "Buy PRL" escrow (tapscript 2-of-2) — onboarding without SafeTrade
-- [ ] PRL ↔ BTC atomic swaps (HTLC primitives already proven on-chain: [pearl-htlc](https://github.com/buildandtestppg/pearl-htlc))
+- [ ] PRL ↔ BTC atomic swaps
 
 ## Contributing
 
