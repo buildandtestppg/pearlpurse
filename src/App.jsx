@@ -72,6 +72,20 @@ export default function App() {
     else setWallet(w); // legacy plaintext (dev only) — wiped on next save
   }, []);
 
+  // one-time migration: pre-rotation wallets (no highestUsed) get gap-20 discovery on first unlock
+  useEffect(() => {
+    if (!wallet || wallet.highestUsed !== undefined) return;
+    (async () => {
+      try {
+        const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
+        const s = await discoverWallet(root);
+        const saved = store.load();
+        store.save({ ...saved, highestUsed: s.highestUsed, address: s.current, index: s.currentIdx, ts: Date.now() });
+        setWallet((w) => ({ ...w, highestUsed: s.highestUsed, address: s.current, index: s.currentIdx }));
+      } catch { /* offline: retry next unlock */ }
+    })();
+  }, [wallet?.mnemonic]);
+
   // auto-lock after 5 min idle
   useEffect(() => {
     if (!wallet) return;
@@ -87,10 +101,13 @@ export default function App() {
     const load = async () => {
       try {
         const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
-        const from = Math.max(0, (wallet.highestUsed ?? -1) + 1 - 10);
-        const to = (wallet.highestUsed ?? -1) + 1 + GAP; // current + gap lookahead
-        const entries = [];
-        for (let i = from; i < to; i++) entries.push({ address: addressFromPriv(derivePriv(root, i)), index: i });
+        // runtime watch set = USED addresses + current receive ONLY
+        // (gap-20 lookahead runs once at import; watching 30 addrs every 30s was overkill)
+        const usedUpTo = wallet.highestUsed ?? -1;
+        const indices = [];
+        for (let i = 0; i <= usedUpTo; i++) indices.push(i);
+        if (!indices.includes(wallet.index)) indices.push(wallet.index);
+        const entries = indices.map((i) => ({ address: addressFromPriv(derivePriv(root, i)), index: i }));
         const d = await fetchWalletDataMulti(entries);
         if (live) { setData(d); setError(""); }
       } catch (e) { if (live) setError(e.message); }
