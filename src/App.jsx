@@ -5,7 +5,7 @@ import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
 import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
-import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, explorerTx } from "./lib/blockbook.js";
+import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, explorerTx, explorerAddr } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
 
@@ -230,14 +230,14 @@ export default function App() {
         ) : (
           <div className="txlist">
             {data.txs.map((t) => (
-              <a className="tx" key={t.txid} href={explorerTx(t.txid)} target="_blank" rel="noreferrer">
+              <div className="tx clickable" key={t.txid} onClick={() => setDetailTx(t)}>
                 <div className={"dir " + t.direction}>{t.direction === "in" ? "↘" : "↗"}</div>
                 <div className="mid">
-                  <div className="addr mono">{t.direction === "in" ? short(t.from || "external") : short(t.to || t.txid)}</div>
+                  <div className="addr mono">{t.direction === "in" ? short(t.from || "coinbase") : short(t.to || t.txid)}</div>
                   <div className="sub">{t.confirmations > 0 ? `${t.confirmations.toLocaleString()} confs` : "pending"} · {new Date((t.blockTime || 0) * 1000).toLocaleDateString()}</div>
                 </div>
-                <div className={"amt " + t.direction}>{t.direction === "in" ? "+" : "−"}{fmt(BigInt(t.amount || 0))}</div>
-              </a>
+                <div className={"amt " + t.direction}>{t.direction === "in" ? "+" : "−"}{fmt(BigInt(t.amount || "0"))}</div>
+              </div>
             ))}
           </div>
         )}
@@ -258,6 +258,13 @@ export default function App() {
       </div>
 
       {sheet === "receive" && <ReceiveSheet address={wallet.address} onClose={() => setSheet(null)} notify={notify} />}
+      {detailTx && (
+        <TxDetailSheet
+          tx={detailTx}
+          onClose={() => setDetailTx(null)}
+          ourAddrs={new Set((data?.addresses || []).map((a) => a.address))}
+        />
+      )}
       {sheet === "send" && (
         <SendSheet
           wallet={wallet}
@@ -365,6 +372,39 @@ function ReceiveSheet({ address, onClose, notify }) {
         <button className="btn small" onClick={() => { navigator.clipboard.writeText(address); notify("Address copied"); }}>Copy</button>
       </div>
       <div className="small mt8">Senders on exchanges must support bech32m (taproot) withdrawals.</div>
+    </Sheet>
+  );
+}
+
+function TxDetailSheet({ tx, onClose, ourAddrs }) {
+  const isOurs = (a) => ourAddrs.has(a);
+  return (
+    <Sheet title="Transaction" onClose={onClose}>
+      <div className="card" style={{ display: "grid", gap: 10 }}>
+        <div className="kv"><span className="k">Direction</span><span>{tx.direction === "in" ? "↘ Received" : "↗ Sent"}</span></div>
+        <div className="kv"><span className="k">Amount</span><span className={"amt " + tx.direction}>{tx.direction === "in" ? "+" : "−"}{fmt(BigInt(tx.amount || "0"))} PRL</span></div>
+        <div className="kv"><span className="k">Date</span><span>{new Date((tx.blockTime || 0) * 1000).toLocaleString()}</span></div>
+        <div className="kv"><span className="k">Confirmations</span><span>{tx.confirmations > 0 ? tx.confirmations.toLocaleString() : "0 (in mempool)"}</span></div>
+        {tx.fee != null && <div className="kv"><span className="k">Fee</span><span className="mono">{fmt(BigInt(tx.fee || "0"))} PRL</span></div>}
+        <div className="section-label" style={{ marginTop: 6 }}>Inputs</div>
+        {(tx.vins || []).map((vin, k) => (
+          <div key={k} className={"mono" + (isOurs(vin.addresses[0]) ? " ours" : "")} style={{ fontSize: 11, opacity: isOurs(vin.addresses[0]) ? 1 : 0.6, wordBreak: "break-all" }}>
+            {vin.addresses[0] ? (isOurs(vin.addresses[0]) ? "● " : "") + short(vin.addresses[0]) : "coinbase"}{vin.value ? " · " + fmt(BigInt(vin.value)) : ""}
+          </div>
+        ))}
+        <div className="section-label" style={{ marginTop: 6 }}>Outputs</div>
+        {(tx.vouts || []).map((vout, k) => (
+          <div key={k} className={"mono" + (isOurs(vout.addresses[0]) ? " ours" : "")} style={{ fontSize: 11, opacity: isOurs(vout.addresses[0]) ? 1 : 0.6, wordBreak: "break-all" }}>
+            {vout.addresses[0] ? (isOurs(vout.addresses[0]) ? "● " : "") + short(vout.addresses[0]) : "???"} · {fmt(BigInt(vout.value || "0"))}
+          </div>
+        ))}
+        <div className="section-label" style={{ marginTop: 6 }}>Txid</div>
+        <div className="mono" style={{ fontSize: 11, wordBreak: "break-all" }}>{tx.txid}</div>
+        <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
+          <button className="btn ghost small" style={{ flex: 1 }} onClick={() => navigator.clipboard?.writeText(tx.txid).then(() => alert("Txid copied"))}>Copy txid</button>
+          <a className="btn ghost small" style={{ flex: 1, textDecoration: "none", textAlign: "center" }} href={explorerTx(tx.txid)} target="_blank" rel="noreferrer">Explorer ↗</a>
+        </div>
+      </div>
     </Sheet>
   );
 }

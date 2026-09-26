@@ -81,6 +81,10 @@ function mapTx(t, ours, index) {
     from: direction === "in" ? cp : null,
     to: direction === "in" ? null : cp,
     index,
+    fee: t.fees,
+    size: t.size,
+    vins: (t.vin || []).map((i) => ({ addresses: i.addresses || [], value: i.value })),
+    vouts: (t.vout || []).map((v) => ({ addresses: v.addresses || [], value: v.value })),
   };
 }
 
