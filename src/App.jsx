@@ -60,7 +60,8 @@ export default function App() {
   const [unlockBusy, setUnlockBusy] = useState(false);
   const [lastActive, setLastActive] = useState(Date.now());
   const [data, setData] = useState(null);
-  const [sheet, setSheet] = useState(null); // 'create' | 'import' | 'send' | 'receive' | 'settings'
+  const [sheet, setSheet] = useState(null);
+  const [detailTx, setDetailTx] = useState(null); // 'create' | 'import' | 'send' | 'receive' | 'settings'
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
