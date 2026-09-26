@@ -437,7 +437,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
   const FEE_MULT = { slow: 0.8, std: 1, fast: 1.5 };
   const effRate = feeRate ? feeRate * FEE_MULT[feeMode] : null;
   const rateAtoms = effRate ? BigInt(Math.round(effRate * 1e8)) : 0n; // atoms per kB
-  const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + 1400n; // +dust-buffer for rounding
+  const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + (rateAtoms * BigInt(vb) % 1000n > 0n ? 1n : 0n) + 1400n; // ceil + dust-buffer
   const [feeAtoms, setFeeAtoms] = useState(0n);
   useEffect(() => { if (effRate) setFeeAtoms(feeFor(vbytes)); }, [effRate, feeMode]);
 
@@ -513,7 +513,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
           </div>
           <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "4px 2px 4px" }}>
             <span>Available: {fmt(balance)} PRL</span>
-            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => setAmount(((balance - feeFor(oneOutVb)) / ATOM).toString())}>MAX</button>
+            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => { const maxSend = balance - feeFor(oneOutVb); setAmount(maxSend > 0n ? (Number(maxSend) / 1e8).toFixed(8) : "0"); }}>MAX</button>
           </div>
           <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "0 2px 12px" }}>
             <span>Fee: {feeAtoms ? fmt(feeAtoms) : "…"} PRL</span>
