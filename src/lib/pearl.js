@@ -174,6 +174,21 @@ export function p2trScript(xOnlyPub) {
   return [0x51, 0x20, ...xOnlyPub];
 }
 
+// Virtual size (vbytes) of a Pearl P2TR keypath tx — for fee estimation.
+// Sizes verified against the serialization in buildTx() above and upstream
+// btcd-derived wire format (Pearl txVersion 1):
+//   input base  = 41 B (32 txid + 4 vout + 1 script-len + 4 sequence)
+//   output base = 43 B (8 value + 1 script-len + 34 P2TR script)
+//   witness/input = 66 raw B (1 stack-count + 1 sig-len + 64 BIP340 sig)
+//   marker+flag = 2 weight units
+export function txVBytes(nIn, nOut) {
+  if (!Number.isInteger(nIn) || nIn < 1) throw new Error("nIn must be a positive integer");
+  if (!Number.isInteger(nOut) || nOut < 1) throw new Error("nOut must be a positive integer");
+  const baseBytes = 4 + 1 + 41 * nIn + 1 + 43 * nOut + 4; // ver + counts + inputs + outputs + locktime
+  const weight = 4 * baseBytes + 2 + 66 * nIn; // + marker/flag + witness data
+  return Math.ceil(weight / 4);
+}
+
 // inputs: [{txid (LE-hex string as displayed), vout, value, xOnlyKey}]
 // outputs: [{xOnlyPub, value}]
 export function buildTx(inputs, outputs, sequence = 0xffffffff) {
