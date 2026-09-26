@@ -4,7 +4,7 @@ import { wordlist } from "@scure/bip39/wordlists/english";
 import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
-import { addressFromPriv, derivePriv, decodeBech32m, buildTx, PEARL } from "./lib/pearl.js";
+import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
 import { fetchWalletData, broadcastTx, getEstimateFee } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
@@ -307,14 +307,25 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
 
   useEffect(() => { getEstimateFee(2).then(setFeeRate).catch(() => setFeeRate(0.0052)); }, []);
 
-  const amtAtoms = amount ? BigInt(Math.round(parseFloat(amount) * 1e8)) : 0n;
+  const amtAtoms = (() => {
+    if (!amount) return 0n;
+    const m = /^\d+(?:\.(\d{1,8}))?$/.exec(amount.trim());
+    if (!m) return 0n;
+    const frac = (m[1] ?? "").padEnd(8, "0");
+    return BigInt(amount.trim().split(".")[0] + frac);
+  })();
 
-  // fee: 1-in-2-out taproot ~ 230 vBytes (segwit discount at 0.25 weight per byte for witness)
-  const vbytes = 1 * 68 + 2 * 31 + 10 + 20;
-  const feeAtoms = feeRate ? BigInt(Math.round(feeRate * 1e8 * (vbytes / 1000))) + 1400n : 0n;
+  // fee: taproot vBytes — witness bytes count 1/4 (segwit discount).
+  // 1-in/2-out ≈ 141 vB, 1-in/1-out ≈ 110 vB; +8% safety margin.
+  const vbytes = 2 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4); // outputs+overhead+input+witness
+  const oneOutVb = 1 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4);
+  const rateAtoms = feeRate ? BigInt(Math.round(feeRate * 1e8)) : 0n; // atoms per kB
+  const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + 1400n; // +dust-buffer for rounding
+  const [feeAtoms, setFeeAtoms] = useState(0n);
+  useEffect(() => { if (feeRate) setFeeAtoms(feeFor(vbytes)); }, [feeRate]);
 
   const build = () => {
-    const d = decodeBech32m(to.trim());
+    const d = decodePearlAddress(to.trim());
     if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
     if (amtAtoms <= 0n) throw new Error("Enter an amount");
     if (amtAtoms + feeAtoms > balance) throw new Error("Amount + fee exceeds balance");
@@ -327,10 +338,12 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
     let sum = 0n;
     for (const u of sorted) { picked.push(u); sum += BigInt(u.value); if (sum >= amtAtoms + feeAtoms + 546n) break; }
     if (sum < amtAtoms + feeAtoms) throw new Error("Not enough UTXOs");
-    const change = sum - amtAtoms - feeAtoms;
+    let change = sum - amtAtoms - feeAtoms;
+    // (sub-dust change simply won't create an output; it stays part of the fee — bounded by 545 atoms)
+    if (change > 0n && change < 546n) change = 0n;
     const inputs = picked.map((u) => ({ txid: u.txid, vout: u.vout, value: Number(BigInt(u.value)), xOnlyPub: null, priv }));
     const outputs = [{ xOnlyPub: d.program, value: Number(amtAtoms) }];
-    if (change >= 546n) outputs.push({ xOnlyPub: schnorr.getPublicKey(priv), value: Number(change) });
+    if (change >= 546n) outputs.push({ xOnlyPub: tweakXOnlyPub(schnorr.getPublicKey(priv)).tweakedX, value: Number(change) });
     return buildTx(inputs, outputs);
   };
 
@@ -378,7 +391,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
           </div>
           <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "4px 2px 12px" }}>
             <span>Available: {fmt(balance)} PRL</span>
-            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => setAmount(((balance - feeAtoms - 546n) / ATOM).toString())}>MAX</button>
+            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => setAmount(((balance - feeFor(oneOutVb)) / ATOM).toString())}>MAX</button>
           </div>
           {err && <div className="err">{err}</div>}
           <button className="btn primary" onClick={() => {

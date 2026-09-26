@@ -38,7 +38,7 @@ function checksum(hrp, data) {
   for (let i = 0; i < 6; i++) out.push((mod >>> (5 * (5 - i))) & 31);
   return out;
 }
-export function convertBits(data, fromBits, toBits, pad) {
+export function convertBits(data, fromBits, toBits, pad, strictPadding = false) {
   let acc = 0, bits = 0;
   const ret = [];
   const maxv = (1 << toBits) - 1;
@@ -51,6 +51,9 @@ export function convertBits(data, fromBits, toBits, pad) {
     }
   }
   if (pad && bits) ret.push((acc << (toBits - bits)) & maxv);
+  if (!pad && bits) {
+    if (strictPadding && (acc & ((1 << bits) - 1)) !== 0) throw new Error("invalid padding");
+  }
   return ret;
 }
 export function encodeBech32m(hrp, data8) {
@@ -59,10 +62,14 @@ export function encodeBech32m(hrp, data8) {
 }
 export function decodeBech32m(addr) {
   if (typeof addr !== "string") throw new Error("address must be string");
-  addr = addr.trim().toLowerCase();
+  const raw = addr.trim();
+  if (raw !== raw.toLowerCase() && raw !== raw.toUpperCase()) throw new Error("mixed case");
+  addr = raw.toLowerCase();
+  if (addr.length > 90) throw new Error("too long");
   const pos = addr.lastIndexOf("1");
-  if (pos < 1) throw new Error("missing separator");
+  if (pos < 1 || addr.length - pos - 1 < 7) throw new Error("missing separator");
   const hrp = addr.slice(0, pos);
+  if (!/^[a-z0-9]+$/.test(hrp)) throw new Error("bad hrp");
   const data5 = [];
   for (const c of addr.slice(pos + 1)) {
     const v = CHARSET.indexOf(c);
@@ -71,8 +78,17 @@ export function decodeBech32m(addr) {
   }
   if (polymod(hrpExpand(hrp).concat(data5)) !== BECH32M_CONST) throw new Error("bad checksum");
   const payload = data5.slice(0, -6);
-  const data8 = convertBits(payload.slice(1), 5, 8, false);
+  const data8 = convertBits(payload.slice(1), 5, 8, false, true);
+  if (data8.length !== 32) throw new Error("program must be 32 bytes (v1 taproot)");
+  if (payload[0] !== 1) throw new Error("only witness v1 (taproot) supported");
   return { hrp, version: payload[0], program: Uint8Array.from(data8) };
+}
+
+// strict variant used for user-entered recipients: locks HRP to Pearl
+export function decodePearlAddress(addr) {
+  const d = decodeBech32m(addr);
+  if (d.hrp !== PEARL.hrp) throw new Error(`not a Pearl address (network: ${d.hrp})`);
+  return d;
 }
 
 // ---------- chain params ----------
@@ -161,7 +177,17 @@ export function p2trScript(xOnlyPub) {
 // inputs: [{txid (LE-hex string as displayed), vout, value, xOnlyKey}]
 // outputs: [{xOnlyPub, value}]
 export function buildTx(inputs, outputs, sequence = 0xffffffff) {
-  const txidLE = (txidHex) => txidHex.match(/../g).reverse().map((h) => parseInt(h, 16));
+  if (!Array.isArray(inputs) || inputs.length === 0) throw new Error("no inputs");
+  if (!Array.isArray(outputs) || outputs.length === 0) throw new Error("no outputs");
+  for (const i of inputs) if (!(Number.isInteger(i.vout) && i.vout >= 0)) throw new Error("bad vout");
+  for (const o of outputs) {
+    if (!(o.xOnlyPub instanceof Uint8Array) || o.xOnlyPub.length !== 32) throw new Error("bad output key");
+    if (!Number.isSafeInteger(o.value) || o.value <= 0 || o.value > 2.1e15) throw new Error("bad output value");
+  }
+  const txidLE = (txidHex) => {
+    if (!/^[0-9a-f]{64}$/.test(txidHex)) throw new Error("bad txid");
+    return txidHex.match(/../g).reverse().map((h) => parseInt(h, 16));
+  };
 
   // no-witness serialization (for txid + BIP341 base)
   const core = [

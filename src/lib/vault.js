@@ -20,6 +20,7 @@ async function deriveKey(password, salt, iterations) {
 }
 
 export async function seal(mnemonic, password) {
+  password = password.normalize("NFKC");
   if (password.length < 8) throw new Error("Password must be at least 8 characters");
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const iv = crypto.getRandomValues(new Uint8Array(12));
@@ -31,6 +32,7 @@ export async function seal(mnemonic, password) {
 
 export async function unseal(vault, password) {
   if (vault?.v !== 1) throw new Error("Unknown vault version");
+  password = password.normalize("NFKC");
   const key = await deriveKey(password, ub64(vault.salt), vault.iter);
   const pt = await crypto.subtle.decrypt({ name: "AES-GCM", iv: ub64(vault.iv) }, key, ub64(vault.ct));
   return dec.decode(pt); // GCM auth tag → throws on wrong password
