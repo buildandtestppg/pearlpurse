@@ -5,7 +5,7 @@ import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
 import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
-import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee } from "./lib/blockbook.js";
+import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, explorerTx } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
 
@@ -230,14 +230,14 @@ export default function App() {
         ) : (
           <div className="txlist">
             {data.txs.map((t) => (
-              <div className="tx" key={t.txid}>
+              <a className="tx" key={t.txid} href={explorerTx(t.txid)} target="_blank" rel="noreferrer">
                 <div className={"dir " + t.direction}>{t.direction === "in" ? "↘" : "↗"}</div>
                 <div className="mid">
                   <div className="addr mono">{t.direction === "in" ? short(t.from || "external") : short(t.to || t.txid)}</div>
                   <div className="sub">{t.confirmations > 0 ? `${t.confirmations.toLocaleString()} confs` : "pending"} · {new Date((t.blockTime || 0) * 1000).toLocaleDateString()}</div>
                 </div>
                 <div className={"amt " + t.direction}>{t.direction === "in" ? "+" : "−"}{fmt(BigInt(t.amount || 0))}</div>
-              </div>
+              </a>
             ))}
           </div>
         )}

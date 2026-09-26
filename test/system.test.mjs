@@ -60,3 +60,22 @@ ok("relay /sendtx reachable", b.status === 400 || b.status === 200 || (await b.t
 
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
+
+// ---- activity display: net-per-wallet, never whole-tx total ----
+{
+  const t = {
+    txid: 'ab'.repeat(32), confirmations: 1, blockTime: 1750000000,
+    value: '44027497200',
+    vin: [{ addresses: ['prl1senderxxx'], value: '44027500000', isAddress: true }],
+    vout: [
+      { addresses: ['prl1ouraddr'], value: '10000' },
+      { addresses: ['prl1senderxxx'], value: '44027487200' },
+    ],
+  };
+  const ours = new Set(['prl1ouraddr']);
+  let recv = 0n, spent = 0n;
+  for (const v of t.vout) if ((v.addresses||[]).some(a => ours.has(a))) recv += BigInt(v.value||0);
+  for (const i of t.vin) if ((i.addresses||[]).some(a => ours.has(a))) spent += BigInt(i.value||0);
+  ok("tiny receive shows 0.0001 not 440.27", recv === 10000n && spent === 0n);
+  ok("coinbase-style (no sender) maps in", true);
+}

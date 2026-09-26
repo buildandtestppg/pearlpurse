@@ -81,6 +81,8 @@ input, textarea { font-family: inherit; }
   color: var(--muted); margin: 20px 2px 9px;
 }
 .txlist { display: flex; flex-direction: column; }
+a.tx { text-decoration: none; color: inherit; }
+a.tx:hover .addr { color: var(--green); }
 .tx {
   display: flex; align-items: center; gap: 12px;
   padding: 12px 2px; border-bottom: 1px solid #2e3636;
