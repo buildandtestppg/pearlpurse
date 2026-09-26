@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Security issue
+    url: https://github.com/buildandtestppg/pearlpurse/blob/main/SECURITY.md
+    about: Vulnerabilities go to the security policy — never a public issue
+  - name: Pearl network
+    url: https://pearlresearch.ai
+    about: Questions about the Pearl chain itself

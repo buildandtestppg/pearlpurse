@@ -1,13 +1,23 @@
 {
   "name": "pearlpurse",
-  "version": "0.1.0",
-  "private": true,
+  "version": "0.4.4",
+  "private": false,
+  "description": "The first web wallet for Pearl ($PRL) — non-custodial, encrypted, browser-only. Live at pearlpurse.vercel.app",
+  "license": "ISC",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/buildandtestppg/pearlpurse"
+  },
+  "homepage": "https://pearlpurse.vercel.app",
+  "bugs": "https://github.com/buildandtestppg/pearlpurse/issues",
+  "keywords": ["pearl", "prl", "wallet", "taproot", "bip86", "bitcoin-like", "utxo", "non-custodial", "web-wallet"],
   "type": "module",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test/vectors.test.mjs && node test/api.test.mjs"
+    "test": "node test/vectors.test.mjs && node test/system.test.mjs && node test/security.test.mjs && node test/vault.test.mjs && node test/rotation.test.mjs",
+    "test:ui": "python3 scripts/ui_smoke.py"
   },
   "dependencies": {
     "@noble/curves": "^1.9.0",
@@ -20,9 +30,6 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
-    "vite": "^5.4.11"
-  },
-  "engines": {
-    "node": "22.x"
+    "vite": "^6.0.0"
   }
 }
