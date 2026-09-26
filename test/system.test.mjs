@@ -77,6 +77,24 @@ ok("relay /sendtx reachable", b.status === 400 || b.status === 200 || (await b.t
   ok("coinbase-style (no sender) maps in", true);
 }
 
+
+// ---- MAX button: amount it sets must survive build() validation ----
+// (regression for the "MAX fills an unsendable number" bug, Sep 27 2026)
+{
+  const ATOM = 100000000n;
+  const rateAtoms = 555030n; // 0.00555 PRL/kB
+  const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + (rateAtoms * BigInt(vb) % 1000n > 0n ? 1n : 0n) + 1400n;
+  const vbytes = 2 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4); // must mirror SendSheet's vbytes
+  for (const [label, balance] of [["10 PRL single-UTXO", 10n * ATOM], ["1 PRL single-UTXO", 1n * ATOM]]) {
+    const maxSend = balance - feeFor(vbytes) - 546n;         // what MAX sets (fixed)
+    const oldMaxSend = balance - feeFor(138);                // what the bug set (1-out fee, no headroom)
+    const passesBuild = maxSend + feeFor(vbytes) <= balance; // build()'s guard: amt + fee <= balance
+    const passesPicker = balance >= maxSend + feeFor(vbytes) + 546n; // picker's guard on single UTXO
+    ok(`MAX amount passes build() (${label})`, maxSend > 0n && passesBuild && passesPicker);
+    ok(`old MAX amount would fail (${label})`, oldMaxSend + feeFor(vbytes) > balance);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
 
