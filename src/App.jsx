@@ -5,7 +5,7 @@ import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
 import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
-import { fetchWalletData, broadcastTx, getEstimateFee } from "./lib/blockbook.js";
+import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
 
@@ -16,6 +16,33 @@ const fmt = (a) => {
   return (neg ? "-" : "") + whole.toLocaleString("en-US") + (frac ? "." + frac.slice(0, 6) : "");
 };
 const short = (a) => a ? a.slice(0, 10) + "…" + a.slice(-8) : "";
+
+// Electrum-style gap-limit discovery: parallel probes until 20 consecutive unused
+const GAP = 20;
+async function discoverWallet(root) {
+  const { fetchAddressBasic } = await import("./lib/blockbook.js");
+  let highestUsed = -1;
+  let scanned = 0;
+  while (true) {
+    const batch = [];
+    for (let i = scanned; i < scanned + 10; i++) {
+      const priv = derivePriv(root, i);
+      batch.push({ i, address: addressFromPriv(priv) });
+    }
+    const rs = await Promise.all(batch.map((b) => fetchAddressBasic(b.address).catch(() => null)));
+    for (let k = 0; k < rs.length; k++) {
+      const r = rs[k];
+      if (r && (Number(r.txCount || 0) > 0 || BigInt(r.balanceSat || 0) > 0n)) highestUsed = Math.max(highestUsed, batch[k].i);
+    }
+    scanned += 10;
+    if (scanned - 1 - highestUsed >= GAP) break;        // gap of unused satisfied
+    if (highestUsed === -1 && scanned >= 30) break;      // fresh wallet short-circuit
+    if (scanned >= 200) break;                           // safety cap
+  }
+  const currentIdx = highestUsed + 1;
+  const current = addressFromPriv(derivePriv(root, currentIdx));
+  return { highestUsed, current, currentIdx };
+}
 
 // ---------- storage (encrypted-at-rest: seed XOR'd with device key is v2; plaintext local for v1) ----------
 const LS_KEY = "pearlpurse.v1";
@@ -53,28 +80,64 @@ export default function App() {
     const t = setInterval(() => { if (Date.now() - lastActive > 5 * 60_000) { setWallet(null); setLocked(true); } }, 15_000);
     return () => { window.removeEventListener("pointerdown", bump); clearInterval(t); };
   }, [wallet, lastActive]);
+  // full scan: current + trailing GAP window (rotation-aware refresh)
   useEffect(() => {
     if (!wallet) return;
     let live = true;
     const load = async () => {
       try {
-        const d = await fetchWalletData(wallet.address);
+        const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
+        const from = Math.max(0, (wallet.highestUsed ?? -1) + 1 - 10);
+        const to = (wallet.highestUsed ?? -1) + 1 + GAP; // current + gap lookahead
+        const entries = [];
+        for (let i = from; i < to; i++) entries.push({ address: addressFromPriv(derivePriv(root, i)), index: i });
+        const d = await fetchWalletDataMulti(entries);
         if (live) { setData(d); setError(""); }
       } catch (e) { if (live) setError(e.message); }
     };
     load();
     const t = setInterval(load, 30000);
-    return () => { live = false; clearInterval(t); };
+    const onRefresh = () => load();
+    window.addEventListener("pearlpurse:refresh", onRefresh);
+    return () => { live = false; clearInterval(t); window.removeEventListener("pearlpurse:refresh", onRefresh); };
   }, [wallet]);
 
+  // advance rotation when the current receive address receives funds
+  useEffect(() => {
+    if (!wallet || !data) return;
+    const currentIdx = wallet.index;
+    const cur = data.addresses?.find((a) => a.index === currentIdx);
+    const curUsed = data.txs?.some((t) => t.index === currentIdx);
+    if (curUsed && currentIdx === wallet.highestUsed + 1) {
+      const next = currentIdx + 1;
+      const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
+      const nextAddress = addressFromPriv(derivePriv(root, next));
+      const saved = store.load();
+      store.save({ ...saved, highestUsed: currentIdx, address: nextAddress, index: next, ts: Date.now() });
+      setWallet({ ...wallet, highestUsed: currentIdx, address: nextAddress, index: next });
+    }
+  }, [data]);
+
   const notify = (m) => { setToast(m); setTimeout(() => setToast(""), 2600); };
+
+  // manual rotation: advance to next unused receive address
+  const rotateNow = () => {
+    if (!wallet) return;
+    const next = wallet.index + 1;
+    const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
+    const nextAddress = addressFromPriv(derivePriv(root, next));
+    const saved = store.load();
+    store.save({ ...saved, address: nextAddress, index: next, ts: Date.now() });
+    setWallet({ ...wallet, address: nextAddress, index: next });
+    notify("New receive address — index " + next);
+  };
 
   const doUnlock = async () => {
     setUnlockBusy(true); setUnlockErr("");
     try {
       const saved = store.load();
       const m = await unseal(saved.vault, unlockPw);
-      setWallet({ mnemonic: m, address: saved.address, index: saved.index ?? 0 });
+      setWallet({ mnemonic: m, address: saved.address, index: saved.index ?? 0, highestUsed: saved.highestUsed ?? saved.index - 1 ?? -1 });
       setLocked(false); setUnlockPw(""); setLastActive(Date.now());
     } catch {
       setUnlockErr("Wrong password (or corrupted vault)");
@@ -108,17 +171,8 @@ export default function App() {
           const root = HDKey.fromMasterSeed(seed);
           const priv = derivePriv(root, 0);
           const address = addressFromPriv(priv);
-          store.save({ vault: await seal(m, pw), address, index: 0, ts: Date.now() });
-          setWallet({ mnemonic: m, address, index: 0 });
-        }}
-        onImport={async (m, pw) => {
-          if (!validateMnemonic(m, wordlist)) throw new Error("Invalid mnemonic (wordlist/length/checksum)");
-          const seed = mnemonicToSeedSync(m);
-          const root = HDKey.fromMasterSeed(seed);
-          const priv = derivePriv(root, 0);
-          const address = addressFromPriv(priv);
-          store.save({ vault: await seal(m, pw), address, index: 0, ts: Date.now() });
-          setWallet({ mnemonic: m, address, index:  0 });
+          store.save({ vault: await seal(m, pw), highestUsed: -1, address, index: 0, ts: Date.now() });
+          setWallet({ mnemonic: m, address, index: 0, highestUsed: -1 });
         }}
       />
     );
@@ -176,7 +230,9 @@ export default function App() {
       <div className="card">
         <div className="kv"><span className="k">Address</span><span className="mono" style={{ fontSize: 11 }}>{short(wallet.address)}</span></div>
         <div className="kv"><span className="k">Derivation</span><span className="mono" style={{ fontSize: 11 }}>m/86'/808276'/0'/0/{wallet.index}</span></div>
+        <div className="kv"><span className="k">Addresses</span><span>{data ? data.addresses.length : "—"} · rotate ↻</span></div>
         <div className="kv"><span className="k">UTXOs</span><span>{data ? data.utxos.length : "—"}</span></div>
+        <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={rotateNow}>↻ New receive address</button>
       </div>
 
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
@@ -195,7 +251,7 @@ export default function App() {
             const r = await broadcastTx(hex);
             notify("Broadcast — " + (r.result || "submitted"));
             setSheet(null);
-            setTimeout(async () => { setData(await fetchWalletData(wallet.address)); }, 2500);
+            setTimeout(() => window.dispatchEvent(new Event("pearlpurse:refresh")), 100);
           }}
         />
       )}
@@ -239,7 +295,7 @@ function Welcome({ onCreate, onImport }) {
               <input className="input" type="password" value={pw} onChange={(e) => setPw(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
             {pw.length > 0 && pw !== pw2 && <div className="small" style={{ color: "#e5958f" }}>Passwords do not match</div>}
             <div className="field"><label>Confirm password</label>
-              <input className="input" type="password" value={pw2} onChange={(e) => setP2b(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
+              <input className="input" type="password" value={pw2} onChange={(e) => setPw2(e.target.value)} placeholder="••••••••" autoComplete="new-password" /></div>
             <button className="btn primary" disabled={!pwOk || busy} onClick={async () => {
               setBusy(true); setErr("");
               try { await onImport(mnemonic.trim(), pw); } catch (e) { setErr(e.message); setBusy(false); }
@@ -331,19 +387,23 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
     if (amtAtoms + feeAtoms > balance) throw new Error("Amount + fee exceeds balance");
     const seed = mnemonicToSeedSync(wallet.mnemonic);
     const root = HDKey.fromMasterSeed(seed);
-    const priv = derivePriv(root, wallet.index);
-    // pick UTXOs (largest-first until covered)
+    const privCache = new Map();
+    const keyFor = (idx) => {
+      if (!privCache.has(idx)) privCache.set(idx, derivePriv(root, idx));
+      return privCache.get(idx);
+    };
+    // pick UTXOs across ALL discovered addresses (largest-first until covered)
     const sorted = [...utxos].sort((a, b) => Number(BigInt(b.value) - BigInt(a.value)));
     const picked = [];
     let sum = 0n;
     for (const u of sorted) { picked.push(u); sum += BigInt(u.value); if (sum >= amtAtoms + feeAtoms + 546n) break; }
     if (sum < amtAtoms + feeAtoms) throw new Error("Not enough UTXOs");
     let change = sum - amtAtoms - feeAtoms;
-    // (sub-dust change simply won't create an output; it stays part of the fee — bounded by 545 atoms)
+    // sub-dust change folds into fee (bounded by 545 atoms — explicit, tiny)
     if (change > 0n && change < 546n) change = 0n;
-    const inputs = picked.map((u) => ({ txid: u.txid, vout: u.vout, value: Number(BigInt(u.value)), xOnlyPub: null, priv }));
+    const inputs = picked.map((u) => ({ txid: u.txid, vout: u.vout, value: Number(BigInt(u.value)), xOnlyPub: null, priv: keyFor(u.index ?? wallet.index) }));
     const outputs = [{ xOnlyPub: d.program, value: Number(amtAtoms) }];
-    if (change >= 546n) outputs.push({ xOnlyPub: tweakXOnlyPub(schnorr.getPublicKey(priv)).tweakedX, value: Number(change) });
+    if (change >= 546n) outputs.push({ xOnlyPub: tweakXOnlyPub(schnorr.getPublicKey(keyFor(wallet.index))).tweakedX, value: Number(change) });
     return buildTx(inputs, outputs);
   };
 

@@ -63,3 +63,26 @@ export async function fetchWalletData(addr) {
   }));
   return { address: addr, confirmed, pending, utxos, txs };
 }
+
+// cheap probe for discovery: balance + txCount only
+export async function fetchAddressBasic(addr) {
+  return get(`/address/${addr}?details=basic`);
+}
+
+// aggregate wallet data across derived addresses (Electrum-style gap scan).
+// entries: [{address, index}] — utxos get tagged with their address/index for signing.
+export async function fetchWalletDataMulti(entries) {
+  const results = await Promise.all(entries.map((e) => fetchWalletData(e.address)));
+  let confirmed = 0n, pending = 0n;
+  const utxos = [];
+  const txs = [];
+  entries.forEach((e, i) => {
+    const r = results[i];
+    confirmed += r.confirmed;
+    pending += r.pending;
+    for (const u of r.utxos) utxos.push({ ...u, address: e.address, index: e.index });
+    for (const t of r.txs) txs.push({ ...t, address: e.address, index: e.index });
+  });
+  txs.sort((a, b) => (b.blockTime || 0) - (a.blockTime || 0));
+  return { addresses: entries, confirmed, pending, utxos, txs: txs.slice(0, 40) };
+}
