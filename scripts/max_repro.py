@@ -187,6 +187,50 @@ time.sleep(1.2)
 sheet_title = ev("document.querySelector('.sheet h3')?.textContent")
 has_qr = ev("!!document.querySelector('.sheet img[src^=\"data:\"]')")
 print("receive-tap:", recv, "| sheet now:", sheet_title, "| QR shown:", has_qr, flush=True)
+# ---- v0.4.8: Sign/Verify sheets ----
+sign_open = ev("(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('✍️ Sign')); if (!b) return 'NO SIGN BUTTON'; b.click(); return 'opened'; })()")
+time.sleep(1)
+print("sign sheet:", sign_open, "|", str(ev("document.querySelector('.sheet h3')?.textContent")), flush=True)
+# type message into the sheet's textarea (first textarea)
+ev("""(() => {
+  const ta = document.querySelector('.sheet textarea');
+  if (!ta) return 'NO TEXTAREA';
+  const s = Object.getOwnPropertyDescriptor(window.HTMLTextAreaElement.prototype, 'value').set;
+  s.call(ta, 'Mojo test proof Sep 27'); ta.dispatchEvent(new Event('input', {bubbles: true}));
+  return 'typed';
+})()""")
+time.sleep(0.4)
+ev("[...document.querySelectorAll('.sheet button')].find(b => b.textContent.includes('Sign with this address'))?.click()")
+time.sleep(1.5)
+sig = ev("document.querySelectorAll('.sheet textarea')[1]?.value || ''")
+print("signature:", str(sig)[:80], flush=True)
+# copy address for verify: close, open Verify, fill fields, run
+ev("[...document.querySelectorAll('.sheet button')].find(b => b.textContent.trim() === '✕')?.click()")
+time.sleep(0.6)
+ev("[...document.querySelectorAll('button')].find(x => x.textContent.includes('🔍 Verify'))?.click()")
+time.sleep(1)
+ev("[...document.querySelectorAll('button')].find(x => x.textContent.includes('🔍 Verify'))?.click()")
+time.sleep(1)
+# full current address: open Receive sheet and read the copyline input
+ev("[...document.querySelectorAll('button')].find(x => x.textContent.trim() === 'Receive')?.click()")
+time.sleep(1.2)
+addr_used = ev("[...document.querySelectorAll('.sheet input')].find(i => (i.value||'').startsWith('prl1'))?.value || ''")
+ev("[...document.querySelectorAll('.sheet button')].find(b => b.textContent.trim() === '✕')?.click()")
+time.sleep(0.6)
+ev("[...document.querySelectorAll('button')].find(x => x.textContent.includes('🔍 Verify'))?.click()")
+time.sleep(1)
+fill = ev("""(() => {
+  const ins = [...document.querySelectorAll('.sheet input, .sheet textarea')];
+  if (ins.length < 3) return 'fields: ' + ins.length;
+  const set = (el, v) => { const proto = el.tagName === 'TEXTAREA' ? window.HTMLTextAreaElement.prototype : window.HTMLInputElement.prototype; Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, v); el.dispatchEvent(new Event('input', {bubbles: true})); };
+  set(ins[0], ARG_ADDR); set(ins[1], 'Mojo test proof Sep 27'); set(ins[2], ARG_SIG);
+  return 'filled';
+})()""".replace("ARG_ADDR", repr(addr_used or "")).replace("ARG_SIG", repr(sig or "")))
+time.sleep(0.4)
+ev("[...document.querySelectorAll('.sheet button')].find(b => b.textContent.trim() === '🔍 Verify')?.click()")
+time.sleep(1)
+verdict = ev("document.querySelector('.sheet')?.innerText.includes('Valid signature')")
+print("verify verdict:", verdict, "|", fill, flush=True)
 print("=== console/exceptions ===", flush=True)
 n = 0
 for e in events:

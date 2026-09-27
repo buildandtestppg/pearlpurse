@@ -10,6 +10,9 @@ import { schnorr, secp256k1 } from "@noble/curves/secp256k1";
 import { sha256 } from "@noble/hashes/sha256";
 import { bytesToNumberBE, numberToBytesBE } from "@noble/curves/abstract/utils";
 
+const hexToBytes = (h) => Uint8Array.from(h.match(/../g).map((x) => parseInt(x, 16)));
+const bytesToHex = (b) => [...b].map((x) => x.toString(16).padStart(2, "0")).join("");
+
 // ---------- bech32m ----------
 const CHARSET = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
 const BECH32M_CONST = 0x2bc830a3;
@@ -151,6 +154,35 @@ export function addressFromXOnly(xOnly) {
   // segwit v1: data5 = [version(1) as raw 5-bit] + convertBits(program,8,5)
   const data5 = [1, ...convertBits([...tweakedX], 8, 5, true)];
   return PEARL.hrp + "1" + data5.concat(checksum(PEARL.hrp, data5)).map((v) => CHARSET[v]).join("");
+}
+
+// ---------- message signing (proof-of-address) ----------
+// Envelope: taggedHash("PearlMsgSig", "Pearl Signed Message:\n" + message)
+// Signature is made with the TWEAKED (output) key so it verifies against the
+// bech32m address itself — a valid signature proves control of the address.
+const MSG_MAGIC = "Pearl Signed Message:\n";
+
+export function messageDigest(message) {
+  const enc = new TextEncoder();
+  return taggedHash("PearlMsgSig", enc.encode(MSG_MAGIC + message));
+}
+
+export function signMessage(priv, xOnlyPub, message) {
+  const tweaked = tweakPriv(priv, xOnlyPub ?? schnorr.getPublicKey(priv));
+  const sig = schnorr.sign(messageDigest(message), tweaked);
+  return bytesToHex(sig);
+}
+
+export function verifyMessage(address, message, sigHex) {
+  try {
+    const d = decodePearlAddress(address.trim());
+    if (!d || d.version !== 1 || d.program?.length !== 32) return false;
+    const sig = hexToBytes(sigHex.trim());
+    if (sig.length !== 64) return false;
+    return schnorr.verify(sig, messageDigest(message), d.program); // program = tweaked x-only key
+  } catch {
+    return false;
+  }
 }
 
 // ---------- tx building (wire format per node/wire/msgtx.go) ----------

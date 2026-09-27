@@ -4,7 +4,7 @@ import { wordlist } from "@scure/bip39/wordlists/english";
 import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
-import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
+import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL, signMessage, verifyMessage } from "./lib/pearl.js";
 import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, getFeeCurve, getNetworkStatus, explorerTx, explorerAddr } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
@@ -255,10 +255,16 @@ export default function App() {
 
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("receive")}>Receive</button>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("sign")}>✍️ Sign</button>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("verify")}>🔍 Verify</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
       </div>
 
       {sheet === "receive" && <ReceiveSheet address={wallet.address} onClose={() => setSheet(null)} notify={notify} />}
+      {sheet === "sign" && <SignSheet wallet={wallet} onClose={() => setSheet(null)} notify={notify} />}
+      {sheet === "verify" && <VerifySheet onClose={() => setSheet(null)} />}
       {detailTx && (
         <TxDetailSheet
           tx={detailTx}
@@ -592,6 +598,87 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
             catch (e) { setErr(e.message); }
           }} disabled={!to || !amount || !effRate}>Review</button>
         </>
+      )}
+    </Sheet>
+  );
+}
+
+function SignSheet({ wallet, onClose, notify }) {
+  const [msg, setMsg] = useState("");
+  const [sig, setSig] = useState("");
+  const [busy, setBusy] = useState(false);
+  const sign = () => {
+    if (!msg.trim()) return;
+    setBusy(true);
+    setTimeout(() => {
+      try {
+        const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
+        const priv = derivePriv(root, wallet.index);
+        setSig(signMessage(priv, null, msg));
+      } catch (e) { notify("Sign failed: " + e.message); }
+      setBusy(false);
+    }, 30);
+  };
+  return (
+    <Sheet title="Sign message" sub={`proves control of ${short(wallet.address)}`} onClose={onClose}>
+      <div className="field">
+        <label>Message</label>
+        <textarea className="input mono" rows={3} value={msg} onChange={(e) => setMsg(e.target.value)} placeholder="Text to sign — e.g. an OTC proof or login challenge" />
+      </div>
+      <button className="btn primary" onClick={sign} disabled={!msg.trim() || busy}>{busy ? "Signing…" : "✍️ Sign with this address"}</button>
+      {sig && (
+        <>
+          <div className="field" style={{ marginTop: 14 }}>
+            <label>Signature (copy & share)</label>
+            <textarea className="input mono" rows={4} readOnly value={sig} />
+          </div>
+          <div className="row2">
+            <button className="btn" onClick={() => { navigator.clipboard.writeText(sig); notify("Signature copied"); }}>Copy signature</button>
+            <button className="btn" onClick={() => {
+              const text = `Pearl address: ${wallet.address}\nMessage: ${msg}\nSignature: ${sig}`;
+              navigator.clipboard.writeText(text); notify("Full proof copied");
+            }}>Copy full proof</button>
+          </div>
+          <div className="small mt8">Anyone can verify this in-app (🔍 Verify) or with any BIP340-Schnorr tool using the PearlMsgSig envelope.</div>
+        </>
+      )}
+    </Sheet>
+  );
+}
+
+function VerifySheet({ onClose }) {
+  const [addr, setAddr] = useState("");
+  const [msg, setMsg] = useState("");
+  const [sig, setSig] = useState("");
+  const [result, setResult] = useState(null); // true | false | null
+  const run = () => setResult(verifyMessage(addr, msg, sig));
+  return (
+    <Sheet title="Verify message" sub="check a Pearl proof-of-address" onClose={onClose}>
+      <div className="field">
+        <label>Pearl address (prl1…)</label>
+        <input className="input mono" value={addr} onChange={(e) => { setAddr(e.target.value); setResult(null); }} placeholder="prl1p…" />
+      </div>
+      <div className="field">
+        <label>Message</label>
+        <textarea className="input mono" rows={3} value={msg} onChange={(e) => { setMsg(e.target.value); setResult(null); }} placeholder="The exact text that was signed" />
+      </div>
+      <div className="field">
+        <label>Signature (64-byte hex)</label>
+        <textarea className="input mono" rows={3} value={sig} onChange={(e) => { setSig(e.target.value); setResult(null); }} placeholder="a1b2…" />
+      </div>
+      <button className="btn primary" onClick={run} disabled={!addr.trim() || !msg.trim() || !sig.trim()}>🔍 Verify</button>
+      {result === true && (
+        <div className="card" style={{ marginTop: 14, textAlign: "center", background: "#223026", borderColor: "#3f5a46" }}>
+          <div style={{ fontSize: 34 }}>✅</div>
+          <div style={{ fontWeight: 700 }}>Valid signature</div>
+          <div className="small mt8">{short(addr)} signed this exact message.</div>
+        </div>
+      )}
+      {result === false && (
+        <div className="err" style={{ marginTop: 14, textAlign: "center" }}>
+          <div style={{ fontSize: 26 }}>❌</div>
+          Invalid — address, message or signature doesn't match.
+        </div>
       )}
     </Sheet>
   );

@@ -8,6 +8,7 @@ import { mnemonicToSeedSync } from '@scure/bip39';
 import {
   PEARL, decodeBech32m, derivePriv, addressFromPriv,
   buildTx, p2trScript, tweakXOnlyPub, taggedHash, varint, u32le, u64le,
+  signMessage, verifyMessage,
 } from '../src/lib/pearl.js';
 import { schnorr } from '@noble/curves/secp256k1';
 import { sha256 } from '@noble/hashes/sha256';
@@ -74,6 +75,19 @@ function sigMsgOf(t) {
   })));
   return Uint8Array.from([0x00, 0x00, ...u32le(PEARL.txVersion), ...u32le(0),
     ...hPrev, ...hAmt, ...hScr, ...hSeq, ...hOut, 0x00, ...u32le(0)]);
+}
+
+
+// ---- message sign/verify (proof-of-address) ----
+{
+  const priv = derivePriv(root, 3);
+  const addr = addressFromPriv(priv);
+  const MSG = 'OTC proof: I control this address, Sep 27 2026';
+  const sig = signMessage(priv, null, MSG);
+  check("sign→verify roundtrip", verifyMessage(addr, MSG, sig) === true);
+  check("verify rejects wrong message", verifyMessage(addr, 'different text', sig) === false);
+  check("verify rejects wrong address", verifyMessage(addressFromPriv(derivePriv(root, 4)), MSG, sig) === false);
+  check("verify rejects garbage input", verifyMessage(addr, 'x', 'not-hex!!') === false);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
