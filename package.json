@@ -2,7 +2,7 @@
   "name": "pearlpurse",
   "version": "0.4.16",
   "private": false,
-  "description": "The first web wallet for Pearl ($PRL) — non-custodial, encrypted, browser-only. Live at pearlpurse.vercel.app",
+  "description": "The first web wallet for Pearl ($PRL) \u2014 non-custodial, encrypted, browser-only. Live at pearlpurse.vercel.app",
   "license": "ISC",
   "repository": {
     "type": "git",
@@ -24,7 +24,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --config vite.verify.config.js",
     "preview": "vite preview",
     "test": "node test/vectors.test.mjs && node test/system.test.mjs && node test/security.test.mjs && node test/vault.test.mjs && node test/rotation.test.mjs",
     "test:ui": "python3 scripts/ui_smoke.py"
