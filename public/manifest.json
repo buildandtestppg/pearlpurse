@@ -1,5 +1,5 @@
 {
-  "name": "PearlPurse — Pearl Wallet",
+  "name": "PearlPurse \u2014 Pearl Wallet",
   "short_name": "PearlPurse",
   "description": "Mobile wallet for Pearl (PRL). Keys live on your device only.",
   "id": "/",
@@ -10,8 +10,27 @@
   "background_color": "#202727",
   "theme_color": "#202727",
   "icons": [
-    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" },
-    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png" },
-    { "src": "/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "protocol_handlers": [
+    {
+      "protocol": "web+pearl",
+      "url": "/?uri=%s"
+    }
   ]
 }

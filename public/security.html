@@ -31,11 +31,12 @@
   <div class="card">
     <p style="margin-bottom:8px">Every release is built reproducibly and its SHA-256 checksums are published here and in the repo's <span class="mono">releases.json</span>. To verify the live site matches the source:</p>
     <ol style="margin-left:18px; color:var(--muted)">
-      <li>Clone <a href="https://github.com/buildandtestppg/pearlpurse">the repo</a> at the release tag</li>
+      <li>Clone <a href="https://github.com/buildandtestppg/pearlpurse">the repo</a> at the release's git tag (shown in the table)</li>
       <li><span class="mono">npm ci &amp;&amp; npm run build</span></li>
-      <li>Compare <span class="mono">sha256sum dist/assets/*</span> against the table below</li>
+      <li>Compare <span class="mono">sha256sum dist/assets/*</span> against the full checksum in the table (click to copy)</li>
       <li>Confirm the bundle name served at <a href="/">pearlpurse.vercel.app</a> matches</li>
     </ol>
+    <p style="margin-top:10px; color:var(--muted); font-size:13.5px"><b>Note on trust roots:</b> the table below is served from the same origin as the app — a compromised deploy could rewrite both. The git repository is the root of trust; this page is a convenience check. Signature-signed releases (minisign) are on the roadmap.</p>
   </div>
   <div class="card"><table id="builds"><tr><th>release</th><th>bundle</th><th>sha-256</th></tr></table></div>
 
@@ -56,7 +57,7 @@
     <li>Strict CSP + nosniff + DENY framing + no-referrer (vercel.json headers)</li>
     <li>Same-origin relay only — wallet never calls third-party origins</li>
     <li>Zero runtime dependencies in the API path; Node 22 pinned</li>
-    <li>88 automated tests: crypto vectors, system, security, vault, rotation</li>
+    <li>Automated test suite: crypto vectors, system, security, vault, rotation (see repo)</li>
   </ul></div>
 
   <div class="foot">PearlPurse is community-built, not affiliated with Pearl Research Labs. <a href="/">← back to wallet</a></div>

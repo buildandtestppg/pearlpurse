@@ -24,7 +24,7 @@ export function parsePearlURI(text) {
   if (!m) return null;
   try {
     const q = new URLSearchParams(m[0].split("?")[1]);
-    const addr = (q.get("addr") || q.get("address") || "").trim();
+    const addr = (q.get("addr") || q.get("address") || "").trim().toLowerCase(); // BIP-173 uppercase form
     if (!addr) return null;
     const d = decodePearlAddress(addr); // must be a valid prl taproot address
     if (!d || d.version !== 1 || d.program?.length !== 32) return null;
@@ -103,6 +103,7 @@ export default function App() {
     let uri = null;
     if (location.protocol === "pearl:") uri = location.href;
     else if (location.pathname.startsWith("/pearl:")) uri = location.pathname + location.search;
+    else { const u = new URLSearchParams(location.search).get("uri") || ""; if (u.toLowerCase().startsWith("web+pearl:")) uri = u.replace(/^web\+/i, ""); }
     if (uri) {
       openPayRequest(uri);
       history.replaceState(null, "", "/"); // never re-capture on reload
@@ -110,6 +111,8 @@ export default function App() {
   }, []);
   // when unlocked with a pending request → open Send pre-filled, exactly once per URI
   useEffect(() => { if (wallet && pendingURI && !consumedURI.current) { consumedURI.current = true; setSheet("send"); } }, [wallet, pendingURI]);
+  // any manual sheet navigation disarms a pending URI (no resurrection later)
+  const openSheet = (name) => { if (name !== "send") setPendingURI(null); setSheet(name); };
 
   // one-time migration: pre-rotation wallets (no highestUsed) get gap-20 discovery on first unlock
   useEffect(() => {
@@ -256,11 +259,11 @@ export default function App() {
       </div>
 
       <div className="actions">
-        <button className="btn" onClick={() => setSheet("receive")}>⬇ Receive</button>
-        <button className="btn primary" onClick={() => setSheet("send")}>⬆ Send</button>
+        <button className="btn" onClick={() => openSheet("receive")}>⬇ Receive</button>
+        <button className="btn primary" onClick={() => openSheet("send")}>⬆ Send</button>
       </div>
       <div style={{ textAlign: "center", margin: "-8px 0 10px" }}>
-        <button className="btn ghost small" onClick={() => setSheet("getprl")}>＋ Get PRL — how to fund this wallet</button>
+        <button className="btn ghost small" onClick={() => openSheet("getprl")}>＋ Get PRL — how to fund this wallet</button>
       </div>
 
       {error && <div className="err">{error}</div>}
@@ -296,8 +299,8 @@ export default function App() {
 
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("receive")}>Receive</button>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("sign")}>✍️ Sign</button>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("verify")}>🔍 Verify</button>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("sign")}>✍️ Sign</button>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("verify")}>🔍 Verify</button>
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
@@ -462,7 +465,7 @@ function TxDetailSheet({ tx, onClose, ourAddrs }) {
 
 function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill }) {
   const [to, setTo] = useState(prefill?.addr || "");
-  const [uriNote, setUriNote] = useState(prefill?.label || prefill?.message || "");
+  const uriNotes = [prefill?.label, prefill?.message].filter(Boolean);
   const [amount, setAmount] = useState(prefill?.amount || "");
   const [feeRate, setFeeRate] = useState(null);
   const [feeMode, setFeeMode] = useState("std"); // slow 0.8x · std 1x · fast 1.5x
@@ -615,10 +618,15 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
         })()
       ) : (
         <>
-          {uriNote && <div className="small" style={{ background: "var(--card-2)", borderRadius: 10, padding: "8px 10px", marginBottom: 10 }}>Request: <b>{uriNote}</b></div>}
+          {uriNotes.length > 0 && (
+            <div className="small" style={{ background: "var(--card-2)", borderRadius: 10, padding: "8px 10px", marginBottom: 10 }}>
+              Payment request{uriNotes.length > 1 ? "s" : ""}: {uriNotes.map((n, i) => <span key={i}><b>{n}</b>{i < uriNotes.length - 1 ? " · " : ""}</span>)}
+            </div>
+          )}
           <div className="field">
             <label>Recipient</label>
             <input className="input mono" value={to} {...(prefill?.addr ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
+          {prefill?.addr && <div className="small mt8">🔒 Recipient locked by payment link — verify it's who you expect before sending.</div>}
           </div>
           <div className="field">
             <label>Amount (PRL)</label>
@@ -650,7 +658,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
 
 function GetPrlSheet({ address, onCopied, onClose }) {
   const [pasted, setPasted] = useState("");
-  const [check, setCheck] = useState(undefined); // true | false | undefined=manual mode
+  const [check, setCheck] = useState(null); // null=unchecked | true | false | undefined=read-failed→manual
   const copy = async () => {
     try { await navigator.clipboard.writeText(address); onCopied("Address copied — paste it in SafeTrade"); }
     catch { onCopied("Copy failed — long-press the address to copy manually"); }
@@ -662,11 +670,13 @@ function GetPrlSheet({ address, onCopied, onClose }) {
       setCheck(t.trim() === address);
     } catch { setCheck(undefined); setPasted(""); } // clipboard unreadable → manual mode, never silent
   };
+  const addrShown = address;
   return (
     <Sheet title="Get PRL" sub="three ways to fund this wallet" onClose={onClose}>
       <div className="card" style={{ background: "var(--card-2)" }}>
         <div style={{ fontWeight: 700, marginBottom: 4 }}>1 · Withdraw from SafeTrade</div>
         <div className="small">The only exchange listing PRL today. Withdraw → paste your address → double-check the first & last 6 chars → send a small test amount first (min withdrawal fees apply).</div>
+        <div className="seed-box" style={{ marginTop: 8, userSelect: "all" }}>{addrShown}</div>
         <button className="btn small" style={{ marginTop: 8 }} onClick={copy}>Copy my address</button>
       </div>
       <div className="card" style={{ background: "var(--card-2)", marginTop: 10 }}>
