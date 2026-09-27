@@ -31,6 +31,10 @@
     "api/v1/[...path].js": {
       "runtime": "@vercel/node@5.0.0",
       "memory": 256
+    },
+    "api/prlstats.js": {
+      "runtime": "@vercel/node@5.0.0",
+      "memory": 256
     }
   },
   "rewrites": [
