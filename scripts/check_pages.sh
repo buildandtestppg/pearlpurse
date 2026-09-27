@@ -7,7 +7,8 @@ fail=0
 check() { # path, grep-pattern, label
   if curl -s --max-time 15 "$BASE$1" | grep -q "$2"; then echo "✓ $3"; else echo "✗ $3 — CONTENT MISSING at $1"; fail=1; fi
 }
-check "/" "id=\"root\"" "SPA shell"
+check "/" "The wallet for" "home page"
+check "/app" "id=\"root\"" "wallet SPA"
 check "/get-started" "wallet for" "get-started landing"
 check "/security" "Threat model" "security page"
 check "/roadmap" "Public and versioned" "roadmap page"

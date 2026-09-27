@@ -25,6 +25,8 @@
     }
   },
   "rewrites": [
+    { "source": "/", "destination": "/home.html" },
+    { "source": "/app", "destination": "/index.html" },
     { "source": "/get-started", "destination": "/get-started.html" },
     { "source": "/security", "destination": "/security.html" },
     { "source": "/roadmap", "destination": "/roadmap.html" },
