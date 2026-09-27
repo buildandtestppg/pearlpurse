@@ -415,6 +415,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
   const [amount, setAmount] = useState("");
   const [feeRate, setFeeRate] = useState(null);
   const [feeMode, setFeeMode] = useState("std"); // slow 0.8x · std 1x · fast 1.5x
+  const [maxActive, setMaxActive] = useState(false); // MAX = live mode, recomputed on fee/balance change
   const [stage, setStage] = useState("form"); // form | review | sending | sent
   const [hex, setHex] = useState(null);
   const [err, setErr] = useState("");
@@ -439,6 +440,13 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
   const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + (rateAtoms * BigInt(vb) % 1000n > 0n ? 1n : 0n) + 1400n; // ceil + dust-buffer
   const [feeAtoms, setFeeAtoms] = useState(0n);
   useEffect(() => { if (effRate) setFeeAtoms(feeFor(vbytes)); }, [effRate, feeMode]);
+  // MAX is a live mode: amount tracks balance − the fee build() actually charges − 546-atom change floor,
+  // recomputed when the estimate lands or the fee mode changes. Editing the amount exits the mode.
+  useEffect(() => {
+    if (!maxActive || !effRate) return;
+    const maxSend = balance - feeFor(vbytes) - 546n;
+    setAmount(maxSend > 0n ? (Number(maxSend) / 1e8).toFixed(8) : "");
+  }, [maxActive, effRate, feeMode, balance]);
 
   const build = () => {
     const d = decodePearlAddress(to.trim());
@@ -508,11 +516,11 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
           </div>
           <div className="field">
             <label>Amount (PRL)</label>
-            <input className="input" type="number" inputMode="decimal" step="0.0001" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" />
+            <input className="input" type="number" inputMode="decimal" step="any" value={amount} onChange={(e) => { setMaxActive(false); setAmount(e.target.value); }} placeholder="0.00" />
           </div>
           <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "4px 2px 4px" }}>
             <span>Available: {fmt(balance)} PRL</span>
-            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => { const maxSend = balance - feeFor(vbytes) - 546n; setAmount(maxSend > 0n ? (Number(maxSend) / 1e8).toFixed(8) : "0"); }}>MAX</button>
+            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => setMaxActive(true)} disabled={!effRate} title={effRate ? "Send full balance (minus fee)" : "estimating fee…"}>MAX</button>
           </div>
           <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "0 2px 12px" }}>
             <span>Fee: {feeAtoms ? fmt(feeAtoms) : "…"} PRL</span>
@@ -522,7 +530,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
               ))}
             </span>
           </div>
-          {feeAtoms && feeAtoms >= balance && (
+          {feeAtoms && feeAtoms + 546n >= balance && (
             <div className="err" style={{ marginBottom: 12 }}>
               Can't send — network fee (~{fmt(feeAtoms)} PRL) is at or above your balance ({fmt(balance)} PRL). Top up this address to make it spendable.
             </div>
