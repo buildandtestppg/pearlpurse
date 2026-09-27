@@ -268,6 +268,7 @@ export default function App() {
       )}
       {sheet === "send" && (
         <SendSheet
+          onReceive={() => setSheet("receive")}
           wallet={wallet}
           utxos={data?.utxos || []}
           balance={data?.confirmed || 0n}
@@ -410,7 +411,7 @@ function TxDetailSheet({ tx, onClose, ourAddrs }) {
   );
 }
 
-function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
+function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
   const [to, setTo] = useState("");
   const [amount, setAmount] = useState("");
   const [feeRate, setFeeRate] = useState(null);
@@ -510,6 +511,30 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
             <button className="btn primary" onClick={submit}>Confirm & send</button>
           </div>
         </>
+      ) : feeAtoms && feeAtoms + 546n >= balance ? (
+        <div style={{ textAlign: "center", padding: "8px 0 2px" }}>
+          <div style={{ fontSize: 40, marginBottom: 6 }}>🛑</div>
+          <h3 style={{ marginBottom: 4 }}>You can't send yet</h3>
+          <div className="small" style={{ marginBottom: 14 }}>
+            Your balance can't cover the network fee — receive PRL to this address to unlock sending.
+          </div>
+          <div className="card" style={{ background: "var(--card-2)", textAlign: "left" }}>
+            <div className="kv"><span className="k">Your balance</span><span>{fmt(balance)} PRL</span></div>
+            <div className="kv"><span className="k">Network fee ({feeMode})</span><span>~{fmt(feeAtoms)} PRL</span></div>
+            <div className="kv"><span className="k">Spendable today</span><span>0 PRL</span></div>
+            <div className="kv"><span className="k">Top up to unlock</span><span>≈ {fmt(feeAtoms + 546n - balance > 0n ? feeAtoms + 546n - balance : 546n)} PRL</span></div>
+          </div>
+          <div className="small" style={{ display: "flex", justifyContent: "center", gap: 4, margin: "12px 0 4px" }}>
+            {[["slow","🐢 Slow"],["std","⚡ Std"],["fast","🚀 Fast"]].map(([m,label]) => (
+              <button key={m} className={"btn ghost small" + (feeMode===m ? " on" : "")} style={{ padding: "4px 8px" }} onClick={() => setFeeMode(m)}>{label}</button>
+            ))}
+          </div>
+          <div className="small" style={{ marginBottom: 12 }}>A slower fee needs less — try 🐢 if you're just short.</div>
+          <div className="row2">
+            <button className="btn" onClick={onClose}>Close</button>
+            <button className="btn primary" onClick={onReceive}>⬇ Receive PRL</button>
+          </div>
+        </div>
       ) : (
         <>
           <div className="field">
@@ -532,11 +557,6 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
               ))}
             </span>
           </div>
-          {feeAtoms && feeAtoms + 546n >= balance && (
-            <div className="err" style={{ marginBottom: 12 }}>
-              Can't send — network fee (~{fmt(feeAtoms)} PRL) is at or above your balance ({fmt(balance)} PRL). Top up this address to make it spendable.
-            </div>
-          )}
           {err && <div className="err">{err}</div>}
           <button className="btn primary" onClick={() => {
             setErr("");

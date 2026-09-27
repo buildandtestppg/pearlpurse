@@ -176,6 +176,12 @@ print(str(review)[:420], flush=True)
 err = ev("document.querySelector('.sheet .err')?.textContent")
 print("error shown  :", str(err)[:200], flush=True)
 
+# advisory panel: tap Receive PRL → sheet should swap
+recv = ev("(() => { const b = [...document.querySelectorAll('button')].find(x => x.textContent.includes('Receive PRL')); if (!b) return 'no panel'; b.click(); return 'tapped'; })()")
+time.sleep(1.2)
+sheet_title = ev("document.querySelector('.sheet h3')?.textContent")
+has_qr = ev("!!document.querySelector('.sheet img[src^="data:"]')")
+print("receive-tap:", recv, "| sheet now:", sheet_title, "| QR shown:", has_qr, flush=True)
 print("=== console/exceptions ===", flush=True)
 n = 0
 for e in events:
