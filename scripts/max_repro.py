@@ -97,7 +97,7 @@ def ev(expr):
     return r.get("result", {}).get("value")
 
 send("Runtime.enable"); send("Page.enable")
-send("Page.navigate", {"url": f"http://127.0.0.1:{PORT}/"})
+send("Page.navigate", {"url": f"http://127.0.0.1:{PORT}/app"})
 time.sleep(5)
 print("[ui] url:", ev("document.URL"), "ready:", ev("document.readyState"), "bodylen:", ev("document.body ? document.body.innerText.length : -1"), flush=True)
 print("[ui] welcome:", str(ev("document.body.innerText.slice(0,90)"))[:90], flush=True)
@@ -231,6 +231,16 @@ ev("[...document.querySelectorAll('.sheet button')].find(b => b.textContent.trim
 time.sleep(1)
 verdict = ev("document.querySelector('.sheet')?.innerText.includes('Valid signature')")
 print("verify verdict:", verdict, "|", fill, flush=True)
+# ---- phish-block: substring URI must NOT capture ----
+send("Page.navigate", {"url": f"http://127.0.0.1:{PORT}/?x=pearl:pay?addr={RCPT}&amount=5&label=Evil"})
+time.sleep(5)
+body = str(ev("document.body.innerText"))
+if "unlock" in body.lower():
+    ev("""(() => { const el = document.querySelector('input[type=password]'); const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set; s.call(el, 'testpass123'); el.dispatchEvent(new Event('input', {bubbles: true})); })()""")
+    time.sleep(0.5); ev("[...document.querySelectorAll('button')].find(b => /unlock/i.test(b.textContent))?.click()"); time.sleep(6)
+time.sleep(1.5)
+print("PHISH-BLOCK: substring URI → sheet =", ev("document.querySelector('.sheet h3')?.textContent"), "(must be None)", flush=True)
+
 # ---- pearl: URI prefill (v0.4.9) ----
 send("Page.navigate", {"url": f"http://127.0.0.1:{PORT}/pearl:pay?addr={RCPT}&amount=0.5&label=Test%20payment"})
 time.sleep(5)
@@ -248,7 +258,7 @@ if "unlock" in body.lower():
 time.sleep(2)
 sheet_h3 = ev("document.querySelector('.sheet h3')?.textContent")
 inputs = ev("[...document.querySelectorAll('.sheet input')].map(i=>i.value.slice(0,20)).join('|')")
-banner = ev("document.querySelector('.sheet')?.innerText.includes('Request:')")
+banner = ev("document.querySelector('.sheet')?.innerText.includes('Payment request')")
 print("URI prefill: sheet =", sheet_h3, "| inputs =", str(inputs)[:90], "| banner =", banner, flush=True)
 print("=== console/exceptions ===", flush=True)
 n = 0

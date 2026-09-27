@@ -48,7 +48,7 @@ def dump_errors(tag):
     events.clear()
 
 send("Runtime.enable"); send("Log.enable"); send("Page.enable")
-send("Page.navigate", {"url": "https://pearlpurse.vercel.app/"})
+send("Page.navigate", {"url": "https://pearlpurse.vercel.app/app"})
 time.sleep(6)
 
 # --- CREATE FLOW ---
@@ -74,7 +74,7 @@ print("step3 after create:", ev("document.body.innerText.slice(0, 300)"))
 dump_errors("CREATE")
 
 # --- RELOAD → LOCKED ---
-send("Page.navigate", {"url": "https://pearlpurse.vercel.app/"})
+send("Page.navigate", {"url": "https://pearlpurse.vercel.app/app"})
 time.sleep(6)
 print("step4 locked screen:", ev("document.body.innerText.slice(0, 150)"))
 

@@ -63,7 +63,7 @@
       "destination": "/api/v2/[...path]"
     },
     {
-      "source": "/((?!api/|.*\\.html$|.*\\.(js|css|png|svg|json|ico|txt|webmanifest)$).*)",
+      "source": "/((?!api/).*)",
       "destination": "/app.html"
     }
   ]
