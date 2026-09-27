@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import { copyFileSync, readdirSync } from "fs";
 
 export default defineConfig({
   plugins: [
@@ -8,9 +9,8 @@ export default defineConfig({
       name: "verify-check-fixed-name",
       closeBundle() {
         // copy the hashed verify chunk to the fixed name verify.html expects
-        const fs = require("fs");
-        const f = fs.readdirSync("dist/assets").find((f) => f.startsWith("verify-") && f.endsWith(".js"));
-        if (f) fs.copyFileSync(`dist/assets/${f}`, "dist/verify-check.js");
+        const f = readdirSync("dist/assets").find((f) => f.startsWith("verify-") && f.endsWith(".js"));
+        if (f) copyFileSync(`dist/assets/${f}`, "dist/verify-check.js");
       },
     },
   ],
