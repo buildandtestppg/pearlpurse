@@ -452,6 +452,8 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
     const d = decodePearlAddress(to.trim());
     if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
     if (amtAtoms <= 0n) throw new Error("Enter an amount");
+    if (!effRate || feeAtoms <= 0n) throw new Error("Fee not estimated yet — try again in a moment");
+    if (amtAtoms < 546n) throw new Error("Below network dust limit (min sendable: 0.00000546 PRL)");
     if (feeAtoms >= balance) throw new Error(`Balance too low: network fee is ~${fmt(feeAtoms)} PRL but balance is ${fmt(balance)} PRL`);
     if (amtAtoms + feeAtoms > balance) throw new Error(`Amount + fee (${fmt(amtAtoms + feeAtoms)} PRL) exceeds balance (${fmt(balance)} PRL)`);
     const seed = mnemonicToSeedSync(wallet.mnemonic);
@@ -540,7 +542,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent }) {
             setErr("");
             try { const r = build(); setHex(r.hex); setTxid(r.txid); setStage("review"); }
             catch (e) { setErr(e.message); }
-          }} disabled={!to || !amount}>Review</button>
+          }} disabled={!to || !amount || !effRate}>Review</button>
         </>
       )}
     </Sheet>
