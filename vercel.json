@@ -8,9 +8,18 @@
           "key": "Content-Security-Policy",
           "value": "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; font-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'; frame-ancestors 'none'"
         },
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "no-referrer" },
-        { "key": "X-Frame-Options", "value": "DENY" }
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "no-referrer"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "DENY"
+        }
       ]
     }
   ],
@@ -25,11 +34,26 @@
     }
   },
   "rewrites": [
-    { "source": "/", "destination": "/home.html" },
-    { "source": "/app", "destination": "/index.html" },
-    { "source": "/get-started", "destination": "/get-started.html" },
-    { "source": "/security", "destination": "/security.html" },
-    { "source": "/roadmap", "destination": "/roadmap.html" },
+    {
+      "source": "/",
+      "destination": "/home.html"
+    },
+    {
+      "source": "/app",
+      "destination": "/app.html"
+    },
+    {
+      "source": "/get-started",
+      "destination": "/get-started.html"
+    },
+    {
+      "source": "/security",
+      "destination": "/security.html"
+    },
+    {
+      "source": "/roadmap",
+      "destination": "/roadmap.html"
+    },
     {
       "source": "/api/v1/(.*)",
       "destination": "/api/v1/[...path]"
@@ -39,8 +63,8 @@
       "destination": "/api/v2/[...path]"
     },
     {
-      "source": "/((?!api/).*)",
-      "destination": "/index.html"
+      "source": "/((?!api/|.*\\.html$|.*\\.(js|css|png|svg|json|ico|txt|webmanifest)$).*)",
+      "destination": "/app.html"
     }
   ]
 }

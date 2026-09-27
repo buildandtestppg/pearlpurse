@@ -61,9 +61,9 @@ class Handler(BaseHTTPRequestHandler):
         if "/api/v2/" in p:
             return self._send(200, "{}")
         # static
-        f = DIST / (p.lstrip("/") or "index.html")
-        if f.is_dir(): f = f / "index.html"
-        if not f.exists(): f = DIST / "index.html"
+        f = DIST / (p.lstrip("/") or "app.html")
+        if f.is_dir(): f = f / "app.html"
+        if not f.exists(): f = DIST / "app.html"
         ctype = "text/html" if f.suffix == ".html" else "application/javascript" if f.suffix == ".js" else "text/css"
         self._send(200, f.read_bytes(), ctype)
 
