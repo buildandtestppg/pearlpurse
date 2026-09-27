@@ -28,5 +28,13 @@
     "date": "2026-09-27T05:20:16Z",
     "tag": "v0.4.13",
     "commit": "14d5512"
+  },
+  {
+    "version": "0.4.14",
+    "bundle": "app-eEMTvWo0.js",
+    "sha256": "0fcc2af063b39d1f0bbea6dc82a5a7a58fba426fb8243adca65096c44143f6ce",
+    "date": "2026-09-27T05:24:41Z",
+    "tag": "v0.4.14",
+    "commit": "2245d44"
   }
 ]
