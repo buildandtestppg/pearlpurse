@@ -25,6 +25,9 @@
     }
   },
   "rewrites": [
+    { "source": "/get-started", "destination": "/get-started.html" },
+    { "source": "/security", "destination": "/security.html" },
+    { "source": "/roadmap", "destination": "/roadmap.html" },
     {
       "source": "/api/v1/(.*)",
       "destination": "/api/v1/[...path]"
