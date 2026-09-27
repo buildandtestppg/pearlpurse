@@ -12,6 +12,7 @@ Last updated: **v0.4.10** (Sep 27, 2026). Live page: **/roadmap**.
 | v0.4.5–4.6 | Honest fee UX, MAX-button correctness (browser-proven), network-aware "can't send yet" advisory with slow-mode escape hatch |
 | v0.4.7 | Real fee curve (1/2/5-block targets from the chain, multiplier model demoted to fallback), live network status in-app |
 | v0.4.8 | Sign/verify messages (Schnorr proof-of-address), PWA install (manifest + icons), strict CSP + security headers |
+| v0.4.17 | 🛡 OTC proof-of-funds standard: standardized envelope (address + timestamp + confirmed balance, Schnorr-signed), standalone /verify page (100% client-side, zero network calls). Blockbook failover: relay serves ≤10-min stale data with X-Pearlpurse-Stale on upstream failure |
 | v0.4.15 | Home network strip upgraded: PRL price + network hashrate via prlstats.com relay (same-origin /api/prlstats, 5-min cache, attribution; difficulty now always populated) |
 | v0.4.14 | Dual-review hardening: duplicate-address guards (watch + book), BigInt crash guard, watch-add sheet from wallet view (was dead button), offline address validation (fresh cold addresses watchable, no on-chain probe = more private), resume-watching on welcome |
 | v0.4.13 | Parity features: 👁 watch-only wallets (standalone read-only mode, no wallet needed), 📒 address book (contacts → one-tap prefilled send), 📝 private tx notes, live difficulty stat on home. Rival-scan: 6-wallet ecosystem, none with reproducible builds + public security page |
