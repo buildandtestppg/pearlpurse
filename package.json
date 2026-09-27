@@ -1,6 +1,6 @@
 {
   "name": "pearlpurse",
-  "version": "0.4.14",
+  "version": "0.4.15",
   "private": false,
   "description": "The first web wallet for Pearl ($PRL) — non-custodial, encrypted, browser-only. Live at pearlpurse.vercel.app",
   "license": "ISC",
