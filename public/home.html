@@ -32,7 +32,9 @@
   .stat { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 16px; min-width:130px; }
   .stat .v { font-weight:700; font-size:16px; font-variant-numeric:tabular-nums; }
   .stat .k { color:var(--muted); font-size:11.5px; letter-spacing:0.8px; text-transform:uppercase; margin-top:2px; }
-  .live { color:var(--sky); font-size:12.5px; margin-bottom:34px; }
+  .live { color:var(--sky); font-size:12.5px; margin-bottom:8px; }
+  .srcnote { color:var(--muted); font-size:11.5px; margin-bottom:30px; opacity:0.85; }
+  .srcnote a { color:var(--sky); }
   .live .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); margin-right:6px; animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.35;} }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:30px; }
@@ -66,6 +68,7 @@
       <div class="stat"><div class="v" id="st-hash">—</div><div class="k">network hashrate</div></div>
     </div>
     <div class="live"><span class="dot"></span><span id="st-status">connecting to Pearl mainnet…</span></div>
+    <div class="srcnote">price · hashrate · difficulty from <a href="https://prlstats.com" target="_blank" rel="noreferrer">prlstats.com</a> (BETA) — block · fees · mempool from <a href="https://blockbook.pearlresearch.ai" target="_blank" rel="noreferrer">blockbook</a>. Community-run sources, not official oracles.</div>
   </div>
 
   <div class="install"><b>📱 Install as an app:</b> iOS Safari → Share → <i>Add to Home Screen</i> · Android Chrome → <i>Install app</i>. Full-screen, own icon, works like a native wallet.</div>
