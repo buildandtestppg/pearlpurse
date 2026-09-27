@@ -12,6 +12,7 @@ Last updated: **v0.4.10** (Sep 27, 2026). Live page: **/roadmap**.
 | v0.4.5–4.6 | Honest fee UX, MAX-button correctness (browser-proven), network-aware "can't send yet" advisory with slow-mode escape hatch |
 | v0.4.7 | Real fee curve (1/2/5-block targets from the chain, multiplier model demoted to fallback), live network status in-app |
 | v0.4.8 | Sign/verify messages (Schnorr proof-of-address), PWA install (manifest + icons), strict CSP + security headers |
+| v0.4.14 | Dual-review hardening: duplicate-address guards (watch + book), BigInt crash guard, watch-add sheet from wallet view (was dead button), offline address validation (fresh cold addresses watchable, no on-chain probe = more private), resume-watching on welcome |
 | v0.4.13 | Parity features: 👁 watch-only wallets (standalone read-only mode, no wallet needed), 📒 address book (contacts → one-tap prefilled send), 📝 private tx notes, live difficulty stat on home. Rival-scan: 6-wallet ecosystem, none with reproducible builds + public security page |
 | v0.4.12 | Fact-sweep: removed all "first wallet" claims (6 Pearl wallets predate us — May 2026 onward), honest positioning, human-readable fee display, ghost-button contrast. Visual QA: mobile+desktop overflow-proven clean |
 | v0.4.11 | Marketing home page at / (live network stats, features grid), wallet moved to /app, returning users auto-skip, content-verified pages + check_pages.sh |

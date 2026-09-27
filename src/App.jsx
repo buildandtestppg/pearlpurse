@@ -378,11 +378,12 @@ export default function App() {
                 <div className="amt">{watching?.address === w.address ? "▲" : "▼"}</div>
               </div>
             ))}
-            <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={() => setWatching(null)}>＋ Watch another address</button>
+            <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={() => setSheet("watchadd")}>＋ Watch another address</button>
           </div>
         </>
       )}
 
+      {sheet === "watchadd" && <WatchAddSheet onAdded={(w) => { setSheet(null); setWatching(w); }} onClose={() => setSheet(null)} />}
       {sheet === "book" && <BookSheet contacts={contacts} onChange={setContacts} onSend={(addr, label) => { setPendingURI({ addr, label }); setSheet("send"); }} onClose={() => setSheet(null)} />}
       {sheet === "receive" && <ReceiveSheet address={wallet.address} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "sign" && <SignSheet wallet={wallet} onClose={() => setSheet(null)} notify={notify} />}
@@ -423,13 +424,14 @@ export default function App() {
 
 
 function WatchPanel({ watching, watchData, setWatching, short, fmt }) {
-  const list = watchStore.load();
+  const safeAmt = (v) => { try { return fmt(BigInt(String(v ?? "0"))); } catch { return "—"; } };
+  const nTxs = watchData && !watchData.error ? (watchData.txs ?? watchData.txCount ?? "—") : "—";
   return (
     <div className="card" style={{ marginBottom: 14 }}>
       <div className="kv"><span className="k">👁 {watching.label}</span><span className="mono" style={{ fontSize: 11 }}>{short(watching.address)}</span></div>
-      <div className="kv"><span className="k">Balance</span><span className="amt" style={{ fontWeight: 700 }}>{watchData && !watchData.error ? fmt(BigInt(watchData.balance || "0")) + " PRL" : "…"}</span></div>
-      <div className="kv"><span className="k">Received</span><span>{watchData && !watchData.error && watchData.totalReceived != null ? fmt(BigInt(watchData.totalReceived || "0")) + " PRL" : "—"}</span></div>
-      <div className="kv"><span className="k">Txs</span><span>{watchData && !watchData.error ? (watchData.txs ?? watchData.txCount ?? "—") : "—"}</span></div>
+      <div className="kv"><span className="k">Balance</span><span className="amt" style={{ fontWeight: 700 }}>{watchData && !watchData.error ? safeAmt(watchData.balance) + " PRL" : "…"}</span></div>
+      <div className="kv"><span className="k">Received</span><span>{watchData && !watchData.error && watchData.totalReceived != null ? safeAmt(watchData.totalReceived) + " PRL" : "—"}</span></div>
+      <div className="kv"><span className="k">Txs</span><span>{nTxs}</span></div>
       <div className="kv"><span className="k">Mode</span><span style={{ color: "var(--muted)" }}>read-only · no keys on this device</span></div>
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <a className="btn ghost small" style={{ flex: 1, textDecoration: "none", textAlign: "center" }} href={explorerAddr(watching.address)} target="_blank" rel="noreferrer">Explorer ↗</a>
@@ -493,11 +495,12 @@ function Welcome({ onCreate, onImport, onWatch }) {
             <button className="btn primary" disabled={busy} onClick={async () => {
               setBusy(true); setErr("");
               try {
-                const d = decodePearlAddress(watchAddr.toLowerCase());
+                const a = watchAddr.toLowerCase();
+                const d = decodePearlAddress(a);
                 if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
-                await fetchAddressBasic(watchAddr.toLowerCase());
                 const l = watchStore.load();
-                l.push({ label: watchLabel.trim() || "watch " + (l.length + 1), address: watchAddr.toLowerCase(), added: Date.now() });
+                if (l.some((w) => w.address === a)) throw new Error("Already watching this address");
+                l.push({ label: watchLabel.trim() || "watch " + (l.length + 1), address: a, added: Date.now() });
                 watchStore.save(l);
                 onWatch();
               } catch (e) { setErr(e.message || "Address not found on-chain"); }
@@ -531,6 +534,9 @@ function Welcome({ onCreate, onImport, onWatch }) {
           </>
         ) : (
           <>
+            {watchStore.load().length > 0 && (
+              <button className="btn ghost" onClick={onWatch}>👁 Resume watching ({watchStore.load().length})</button>
+            )}
             <button className="btn primary" onClick={() => { const m = entropyToMnemonic(crypto.getRandomValues(new Uint8Array(16)), wordlist); setCreated(m); setMode("create"); }}>Create new wallet</button>
             <button className="btn" onClick={() => setMode("import")}>Import seed phrase</button>
             <button className="btn ghost" onClick={() => setMode("watch")}>👁 Watch an address (read-only)</button>
@@ -926,9 +932,11 @@ function BookSheet({ contacts, onChange, onSend, onClose }) {
   const add = () => {
     try {
       if (!addr.trim()) throw new Error("Enter a prl1… address");
-      const d = decodePearlAddress(addr.trim().toLowerCase());
+      const a = addr.trim().toLowerCase();
+      const d = decodePearlAddress(a);
       if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
-      const l = [...contacts, { label: label.trim() || "contact " + (contacts.length + 1), address: addr.trim().toLowerCase(), added: Date.now() }];
+      if (contacts.some((c) => c.address === a)) throw new Error("Already in your address book");
+      const l = [...contacts, { label: label.trim() || "contact " + (contacts.length + 1), address: a, added: Date.now() }];
       book.save(l); onChange(l); setLabel(""); setAddr(""); setErr("");
     } catch (e) { setErr(e.message); }
   };
@@ -951,6 +959,33 @@ function BookSheet({ contacts, onChange, onSend, onClose }) {
       <div className="field"><label>Address</label><input className="input mono" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="prl1p…" /></div>
       {err && <div className="err">{err}</div>}
       <button className="btn primary" style={{ width: "100%" }} onClick={add}>Add to address book</button>
+    </Sheet>
+  );
+}
+
+function WatchAddSheet({ onAdded, onClose }) {
+  const [addr, setAddr] = useState("");
+  const [label, setLabel] = useState("");
+  const [err, setErr] = useState("");
+  const add = () => {
+    try {
+      const a = addr.trim().toLowerCase();
+      const d = decodePearlAddress(a);
+      if (!a) throw new Error("Enter a prl1… address");
+      if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
+      const l = watchStore.load();
+      if (l.some((w) => w.address === a)) throw new Error("Already watching this address");
+      const w = { label: label.trim() || "watch " + (l.length + 1), address: a, added: Date.now() };
+      l.push(w); watchStore.save(l);
+      onAdded(w);
+    } catch (e) { setErr(e.message); }
+  };
+  return (
+    <Sheet title="👁 Watch an address" sub="read-only · no keys needed" onClose={onClose}>
+      <div className="field"><label>Label (optional)</label><input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="e.g. cold vault, friend" /></div>
+      <div className="field"><label>Pearl address (prl1…)</label><input className="input mono" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="prl1p…" /></div>
+      {err && <div className="err">{err}</div>}
+      <button className="btn primary" style={{ width: "100%" }} onClick={add}>Watch address</button>
     </Sheet>
   );
 }
