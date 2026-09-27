@@ -23,6 +23,7 @@
       if (!b.bestHeight) throw new Error("no data");
       set("st-block", Number(b.bestHeight).toLocaleString());
       set("st-mempool", b.mempoolSize != null ? b.mempoolSize : "—");
+      if (b.difficulty) { var df = parseFloat(b.difficulty); set("st-diff", df >= 1e6 ? (df / 1e6).toFixed(1) + "M" : df >= 1e3 ? (df / 1e3).toFixed(1) + "k" : String(Math.round(df))); }
       set("st-status", (b.inSync && b.inSyncMempool ? "Pearl mainnet · synced" : "Pearl mainnet · syncing…") +
         (b.lastBlockTime ? " · latest block " + b.lastBlockTime.slice(11, 16) + " UTC" : ""));
       return fetch("/api/v1/estimatefee/5");

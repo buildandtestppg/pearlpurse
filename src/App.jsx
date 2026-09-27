@@ -5,11 +5,38 @@ import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
 import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL, signMessage, verifyMessage } from "./lib/pearl.js";
-import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, getFeeCurve, getNetworkStatus, explorerTx, explorerAddr } from "./lib/blockbook.js";
+import { fetchWalletData, fetchWalletDataMulti, fetchAddressBasic, broadcastTx, getEstimateFee, getFeeCurve, getNetworkStatus, explorerTx, explorerAddr } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
 
 const ATOM = 100_000_000n;
+
+// ── address book (module store — plain localStorage, no secrets) ─────────
+const BOOK_KEY = "pearlpurse.book.v1";
+const book = {
+  load: () => { try { return JSON.parse(localStorage.getItem(BOOK_KEY)) || []; } catch { return []; } },
+  save: (l) => localStorage.setItem(BOOK_KEY, JSON.stringify(l)),
+};
+
+// ── private tx notes (device-local) ──────────────────────────────────────
+const NOTE_KEY = "pearlpurse.notes.v1";
+const noteStore = {
+  load: () => { try { return JSON.parse(localStorage.getItem(NOTE_KEY)) || {}; } catch { return {}; } },
+  save: (o) => localStorage.setItem(NOTE_KEY, JSON.stringify(o)),
+};
+function txNote(txid) { return noteStore.load()[txid] || ""; }
+function saveTxNote(txid, text) {
+  const o = noteStore.load();
+  if (text) o[txid] = text.slice(0, 140); else delete o[txid];
+  noteStore.save(o);
+}
+
+// ── watch-only wallets (addresses only — nothing secret to encrypt) ──────
+const WATCH_KEY = "pearlpurse.watch.v1";
+const watchStore = {
+  load: () => { try { return JSON.parse(localStorage.getItem(WATCH_KEY)) || []; } catch { return []; } },
+  save: (l) => localStorage.setItem(WATCH_KEY, JSON.stringify(l)),
+};
 const fmt = (a) => {
   const neg = a < 0n; const v = neg ? -a : a;
   const whole = v / ATOM, frac = (v % ATOM).toString().padStart(8, "0").replace(/0+$/, "");
@@ -84,6 +111,21 @@ export default function App() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
+  const [watching, setWatching] = useState(null); // { label, address } — read-only view
+  const [contacts, setContacts] = useState(book.load());
+  const [watchData, setWatchData] = useState(null);
+  // watch-only: fetch + refresh on pearlpurse:refresh events
+  useEffect(() => {
+    if (!watching) { setWatchData(null); return; }
+    let dead = false;
+    const pull = async () => {
+      try { const d = await fetchAddressBasic(watching.address); if (!dead) setWatchData(d); }
+      catch { if (!dead) setWatchData({ error: "fetch failed" }); }
+    };
+    pull();
+    window.addEventListener("pearlpurse:refresh", pull);
+    return () => { dead = true; window.removeEventListener("pearlpurse:refresh", pull); };
+  }, [watching]);
 
   useEffect(() => {
     const w = store.load();
@@ -223,8 +265,21 @@ export default function App() {
   }
 
   if (!wallet) {
+    if (watching) {
+      return (
+        <div className="app">
+          <div style={{ textAlign: "center", margin: "10px 0 16px" }}>
+            <img src="/pearl.svg" alt="" style={{ width: 40, opacity: 0.9 }} />
+            <div className="small" style={{ color: "var(--muted)", marginTop: 6 }}>PearlPurse · watch-only mode</div>
+          </div>
+          <WatchPanel watching={watching} watchData={watchData} setWatching={setWatching} short={short} fmt={fmt} />
+          <button className="btn ghost small" style={{ width: "100%", marginTop: 4 }} onClick={() => setWatching(null)}>← Back</button>
+        </div>
+      );
+    }
     return (
       <Welcome
+        onWatch={() => setWatching(watchStore.load()[watchStore.load().length - 1] || null)}
         onCreate={async (m, pw) => {
           const seed = mnemonicToSeedSync(m);
           const root = HDKey.fromMasterSeed(seed);
@@ -268,6 +323,7 @@ export default function App() {
 
       {error && <div className="err">{error}</div>}
 
+      {watching && <WatchPanel watching={watching} watchData={watchData} setWatching={setWatching} short={short} fmt={fmt} />}
       <div className="section-label">Activity</div>
       <div className="card">
         {!data || data.txs.length === 0 ? (
@@ -279,7 +335,7 @@ export default function App() {
                 <div className={"dir " + t.direction}>{t.direction === "in" ? "↘" : "↗"}</div>
                 <div className="mid">
                   <div className="addr mono">{t.direction === "in" ? short(t.from || "coinbase") : short(t.to || t.txid)}</div>
-                  <div className="sub">{t.confirmations > 0 ? `${t.confirmations.toLocaleString()} confs` : "pending"} · {new Date((t.blockTime || 0) * 1000).toLocaleDateString()}</div>
+                  <div className="sub">{t.confirmations > 0 ? `${t.confirmations.toLocaleString()} confs` : "pending"} · {new Date((t.blockTime || 0) * 1000).toLocaleDateString()}{txNote(t.txid) ? " · 📝 " + txNote(t.txid) : ""}</div>
                 </div>
                 <div className={"amt " + t.direction}>{t.direction === "in" ? "+" : "−"}{fmt(BigInt(t.amount || "0"))}</div>
               </div>
@@ -303,9 +359,31 @@ export default function App() {
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("verify")}>🔍 Verify</button>
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("book")}>📒 Address book ({contacts.length})</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
       </div>
+      {(watchStore.load().length > 0 || watching) && (
+        <>
+          <div className="section-label" style={{ marginTop: 16 }}>Watching</div>
+          <div className="card">
+            {watchStore.load().map((w) => (
+              <div className="tx clickable" key={w.address} onClick={() => setWatching(watching?.address === w.address ? null : w)} style={{ opacity: watching?.address === w.address ? 1 : 0.75 }}>
+                <div className="dir">👁</div>
+                <div className="mid">
+                  <div className="addr">{w.label}</div>
+                  <div className="sub mono">{short(w.address)}</div>
+                </div>
+                <div className="amt">{watching?.address === w.address ? "▲" : "▼"}</div>
+              </div>
+            ))}
+            <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={() => setWatching(null)}>＋ Watch another address</button>
+          </div>
+        </>
+      )}
 
+      {sheet === "book" && <BookSheet contacts={contacts} onChange={setContacts} onSend={(addr, label) => { setPendingURI({ addr, label }); setSheet("send"); }} onClose={() => setSheet(null)} />}
       {sheet === "receive" && <ReceiveSheet address={wallet.address} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "sign" && <SignSheet wallet={wallet} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "verify" && <VerifySheet onClose={() => setSheet(null)} />}
@@ -343,7 +421,26 @@ export default function App() {
   );
 }
 
-function Welcome({ onCreate, onImport }) {
+
+function WatchPanel({ watching, watchData, setWatching, short, fmt }) {
+  const list = watchStore.load();
+  return (
+    <div className="card" style={{ marginBottom: 14 }}>
+      <div className="kv"><span className="k">👁 {watching.label}</span><span className="mono" style={{ fontSize: 11 }}>{short(watching.address)}</span></div>
+      <div className="kv"><span className="k">Balance</span><span className="amt" style={{ fontWeight: 700 }}>{watchData && !watchData.error ? fmt(BigInt(watchData.balance || "0")) + " PRL" : "…"}</span></div>
+      <div className="kv"><span className="k">Received</span><span>{watchData && !watchData.error && watchData.totalReceived != null ? fmt(BigInt(watchData.totalReceived || "0")) + " PRL" : "—"}</span></div>
+      <div className="kv"><span className="k">Txs</span><span>{watchData && !watchData.error ? (watchData.txs ?? watchData.txCount ?? "—") : "—"}</span></div>
+      <div className="kv"><span className="k">Mode</span><span style={{ color: "var(--muted)" }}>read-only · no keys on this device</span></div>
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <a className="btn ghost small" style={{ flex: 1, textDecoration: "none", textAlign: "center" }} href={explorerAddr(watching.address)} target="_blank" rel="noreferrer">Explorer ↗</a>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Remove watch address?")) { const l = watchStore.load().filter((w) => w.address !== watching.address); watchStore.save(l); setWatching(null); } }}>Remove</button>
+      </div>
+      {watchData?.error && <div className="err" style={{ marginTop: 8 }}>{watchData.error}</div>}
+    </div>
+  );
+}
+
+function Welcome({ onCreate, onImport, onWatch }) {
   const [mode, setMode] = useState(null);
   const [mnemonic, setMnemonic] = useState("");
   const [err, setErr] = useState("");
@@ -354,6 +451,8 @@ function Welcome({ onCreate, onImport }) {
   const [pw2, setPw2] = useState("");
   const [busy, setBusy] = useState(false);
   const pwOk = pw.length >= 8 && pw === pw2;
+  const [watchAddr, setWatchAddr] = useState("");
+  const [watchLabel, setWatchLabel] = useState("");
 
   return (
     <div className="app">
@@ -378,6 +477,32 @@ function Welcome({ onCreate, onImport }) {
               setBusy(true); setErr("");
               try { await onImport(mnemonic.trim(), pw); } catch (e) { setErr(e.message); setBusy(false); }
             }}>{busy ? "Importing…" : "Import wallet"}</button>
+            <button className="btn ghost" onClick={() => setMode(null)}>Back</button>
+          </>
+        ) : mode === "watch" ? (
+          <>
+            <div className="field">
+              <label>Pearl address (prl1…)</label>
+              <input className="input mono" value={watchAddr} onChange={(e) => setWatchAddr(e.target.value.trim())} placeholder="prl1p…" />
+            </div>
+            <div className="field">
+              <label>Label (optional)</label>
+              <input className="input" value={watchLabel} onChange={(e) => setWatchLabel(e.target.value)} placeholder="e.g. cold vault, friend" />
+            </div>
+            {err && <div className="err">{err}</div>}
+            <button className="btn primary" disabled={busy} onClick={async () => {
+              setBusy(true); setErr("");
+              try {
+                const d = decodePearlAddress(watchAddr.toLowerCase());
+                if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
+                await fetchAddressBasic(watchAddr.toLowerCase());
+                const l = watchStore.load();
+                l.push({ label: watchLabel.trim() || "watch " + (l.length + 1), address: watchAddr.toLowerCase(), added: Date.now() });
+                watchStore.save(l);
+                onWatch();
+              } catch (e) { setErr(e.message || "Address not found on-chain"); }
+              setBusy(false);
+            }}>{busy ? "Checking…" : "Watch address"}</button>
             <button className="btn ghost" onClick={() => setMode(null)}>Back</button>
           </>
         ) : mode === "create" ? (
@@ -408,6 +533,7 @@ function Welcome({ onCreate, onImport }) {
           <>
             <button className="btn primary" onClick={() => { const m = entropyToMnemonic(crypto.getRandomValues(new Uint8Array(16)), wordlist); setCreated(m); setMode("create"); }}>Create new wallet</button>
             <button className="btn" onClick={() => setMode("import")}>Import seed phrase</button>
+            <button className="btn ghost" onClick={() => setMode("watch")}>👁 Watch an address (read-only)</button>
           </>
         )}
       </div>
@@ -454,6 +580,10 @@ function TxDetailSheet({ tx, onClose, ourAddrs }) {
         ))}
         <div className="section-label" style={{ marginTop: 6 }}>Txid</div>
         <div className="mono" style={{ fontSize: 11, wordBreak: "break-all" }}>{tx.txid}</div>
+        <div className="field" style={{ marginTop: 10 }}>
+          <label>Note (private, stored on this device)</label>
+          <input className="input" defaultValue={txNote(tx.txid)} onBlur={(e) => saveTxNote(tx.txid, e.target.value.trim())} placeholder="e.g. paid Alice for design work" />
+        </div>
         <div style={{ display: "flex", gap: 10, marginTop: 8 }}>
           <button className="btn ghost small" style={{ flex: 1 }} onClick={() => navigator.clipboard?.writeText(tx.txid).then(() => alert("Txid copied"))}>Copy txid</button>
           <a className="btn ghost small" style={{ flex: 1, textDecoration: "none", textAlign: "center" }} href={explorerTx(tx.txid)} target="_blank" rel="noreferrer">Explorer ↗</a>
@@ -785,6 +915,42 @@ function VerifySheet({ onClose }) {
           Invalid — address, message or signature doesn't match.
         </div>
       )}
+    </Sheet>
+  );
+}
+
+function BookSheet({ contacts, onChange, onSend, onClose }) {
+  const [label, setLabel] = useState("");
+  const [addr, setAddr] = useState("");
+  const [err, setErr] = useState("");
+  const add = () => {
+    try {
+      if (!addr.trim()) throw new Error("Enter a prl1… address");
+      const d = decodePearlAddress(addr.trim().toLowerCase());
+      if (!d || d.version !== 1 || d.program?.length !== 32) throw new Error("Not a valid prl1… taproot address");
+      const l = [...contacts, { label: label.trim() || "contact " + (contacts.length + 1), address: addr.trim().toLowerCase(), added: Date.now() }];
+      book.save(l); onChange(l); setLabel(""); setAddr(""); setErr("");
+    } catch (e) { setErr(e.message); }
+  };
+  return (
+    <Sheet title="📒 Address book" sub="saved on this device only" onClose={onClose}>
+      {contacts.length === 0 && <div className="center small" style={{ padding: "10px 0" }}>No contacts yet</div>}
+      {contacts.map((c) => (
+        <div className="card" key={c.address} style={{ marginBottom: 8, padding: 12 }}>
+          <div style={{ fontWeight: 700, fontSize: 14 }}>{c.label}</div>
+          <div className="mono small" style={{ wordBreak: "break-all", margin: "4px 0 8px", color: "var(--muted)" }}>{c.address}</div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button className="btn ghost small" style={{ flex: 1 }} onClick={() => onSend(c.address, c.label)}>Send</button>
+            <button className="btn ghost small" style={{ flex: 1 }} onClick={() => navigator.clipboard?.writeText(c.address).then(() => alert("Address copied"))}>Copy</button>
+            <button className="btn ghost small" onClick={() => { const l = contacts.filter((x) => x.address !== c.address); book.save(l); onChange(l); }}>✕</button>
+          </div>
+        </div>
+      ))}
+      <div className="section-label" style={{ marginTop: 6 }}>Add contact</div>
+      <div className="field"><label>Label</label><input className="input" value={label} onChange={(e) => setLabel(e.target.value)} placeholder="name / purpose" /></div>
+      <div className="field"><label>Address</label><input className="input mono" value={addr} onChange={(e) => setAddr(e.target.value)} placeholder="prl1p…" /></div>
+      {err && <div className="err">{err}</div>}
+      <button className="btn primary" style={{ width: "100%" }} onClick={add}>Add to address book</button>
     </Sheet>
   );
 }
