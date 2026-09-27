@@ -17,6 +17,25 @@
   } catch (e) { /* storage blocked — show marketing */ }
 
   var set = function (id, v) { var el = document.getElementById(id); if (el) el.textContent = v; };
+  fetch("/api/prlstats/api/status").then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (p) {
+      var d = p.difficulty || (p.chain && p.chain.d) || (p.current_difficulty);
+      if (d && !document.getElementById("st-diff").textContent || document.getElementById("st-diff").textContent === "—") {
+        var df = parseFloat(d);
+        if (df > 0) document.getElementById("st-diff").textContent = df >= 1e6 ? (df / 1e6).toFixed(1) + "M" : df >= 1e3 ? (df / 1e3).toFixed(1) + "k" : String(Math.round(df));
+      }
+      var h = p.current_hashrate_hs || p.hashrate_hs || (p.chain && p.chain.h);
+      if (h) {
+        var hv = parseFloat(h);
+        document.getElementById("st-hash").textContent = hv >= 1e18 ? (hv / 1e18).toFixed(1) + " EH/s" : hv >= 1e15 ? (hv / 1e15).toFixed(1) + " PH/s" : hv >= 1e12 ? (hv / 1e12).toFixed(1) + " TH/s" : "—";
+      }
+    })
+    .catch(function () {});
+  fetch("/api/prlstats/api/difficulty").then(function (r) { if (!r.ok) throw 0; return r.json(); })
+    .then(function (m) {
+      if (m.prl_price_usd) document.getElementById("st-price").textContent = "$" + m.prl_price_usd.toFixed(2);
+    })
+    .catch(function () {});
   fetch("/api/v2/").then(function (r) { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
     .then(function (j) {
       var b = j.blockbook || {};

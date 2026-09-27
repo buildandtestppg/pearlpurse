@@ -35,6 +35,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/prlstats/(.*)",
+      "destination": "/api/prlstats"
+    },
+    {
       "source": "/",
       "destination": "/home.html"
     },
