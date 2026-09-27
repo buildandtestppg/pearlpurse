@@ -24,14 +24,14 @@ export function parsePearlURI(text) {
   if (!m) return null;
   try {
     const q = new URLSearchParams(m[0].split("?")[1]);
-    const addr = q.get("addr") || q.get("address") || "";
-    const amount = q.get("amount") || "";
-    const label = q.get("label") || "";
-    const message = q.get("message") || "";
+    const addr = (q.get("addr") || q.get("address") || "").trim();
     if (!addr) return null;
-    const amtOk = !amount || /^\d+(\.\d{1,8})?$/.test(amount);
-    if (!amtOk) return null;
-    return { addr, amount, label, message };
+    const d = decodePearlAddress(addr); // must be a valid prl taproot address
+    if (!d || d.version !== 1 || d.program?.length !== 32) return null;
+    const rawAmount = q.get("amount") || "";
+    const amount = /^\d+(\.\d{1,8})?$/.test(rawAmount) ? rawAmount : ""; // bad amount keeps the addr
+    const cap = (s) => (s || "").slice(0, 200);
+    return { addr, amount, label: cap(q.get("label")), message: cap(q.get("message")) };
   } catch { return null; }
 }
 
@@ -92,16 +92,24 @@ export default function App() {
     else setWallet(w); // legacy plaintext (dev only) — wiped on next save
   }, []);
 
-  // pearl: URI → pre-fill Send (works pre- and post-unlock; sheet opens after decrypt)
+  // pearl: URI → pre-fill Send. Capture ONLY real protocol launches or an exact /pearl:pay
+  // path — never a substring (blocks ?x=pearl:pay?... drive-by invoice phishing on our domain).
+  const consumedURI = useRef(false);
   const openPayRequest = (uriText) => {
     const r = parsePearlURI(uriText);
-    if (r) setPendingURI(r);
+    if (r) { consumedURI.current = false; setPendingURI(r); }
   };
   useEffect(() => {
-    if (location.protocol === "pearl:" || location.href.includes("pearl:")) openPayRequest(location.href);
+    let uri = null;
+    if (location.protocol === "pearl:") uri = location.href;
+    else if (location.pathname.startsWith("/pearl:")) uri = location.pathname + location.search;
+    if (uri) {
+      openPayRequest(uri);
+      history.replaceState(null, "", "/"); // never re-capture on reload
+    }
   }, []);
-  // when unlocked with a pending request → open Send pre-filled
-  useEffect(() => { if (wallet && pendingURI) setSheet("send"); }, [wallet, pendingURI]);
+  // when unlocked with a pending request → open Send pre-filled, exactly once per URI
+  useEffect(() => { if (wallet && pendingURI && !consumedURI.current) { consumedURI.current = true; setSheet("send"); } }, [wallet, pendingURI]);
 
   // one-time migration: pre-rotation wallets (no highestUsed) get gap-20 discovery on first unlock
   useEffect(() => {
@@ -308,7 +316,7 @@ export default function App() {
       )}
       {sheet === "send" && (
         <SendSheet
-          onReceive={() => setSheet("receive")}
+          onReceive={() => { setSheet("receive"); setPendingURI(null); }}
           prefill={pendingURI}
           wallet={wallet}
           utxos={data?.utxos || []}
@@ -610,7 +618,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
           {uriNote && <div className="small" style={{ background: "var(--card-2)", borderRadius: 10, padding: "8px 10px", marginBottom: 10 }}>Request: <b>{uriNote}</b></div>}
           <div className="field">
             <label>Recipient</label>
-            <input className="input mono" value={to} {...(uriNote ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
+            <input className="input mono" value={to} {...(prefill?.addr ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
           </div>
           <div className="field">
             <label>Amount (PRL)</label>
@@ -642,19 +650,24 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
 
 function GetPrlSheet({ address, onCopied, onClose }) {
   const [pasted, setPasted] = useState("");
-  const [check, setCheck] = useState(null); // true/false
-  const verify = () => {
-    navigator.clipboard.readText().then((t) => {
+  const [check, setCheck] = useState(undefined); // true | false | undefined=manual mode
+  const copy = async () => {
+    try { await navigator.clipboard.writeText(address); onCopied("Address copied — paste it in SafeTrade"); }
+    catch { onCopied("Copy failed — long-press the address to copy manually"); }
+  };
+  const verify = async () => {
+    try {
+      const t = await navigator.clipboard.readText();
       setPasted(t);
       setCheck(t.trim() === address);
-    }).catch(() => setCheck(null));
+    } catch { setCheck(undefined); setPasted(""); } // clipboard unreadable → manual mode, never silent
   };
   return (
     <Sheet title="Get PRL" sub="three ways to fund this wallet" onClose={onClose}>
       <div className="card" style={{ background: "var(--card-2)" }}>
         <div style={{ fontWeight: 700, marginBottom: 4 }}>1 · Withdraw from SafeTrade</div>
         <div className="small">The only exchange listing PRL today. Withdraw → paste your address → double-check the first & last 6 chars → send a small test amount first (min withdrawal fees apply).</div>
-        <button className="btn small" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard.writeText(address); onCopied("Address copied — paste it in SafeTrade"); }}>Copy my address</button>
+        <button className="btn small" style={{ marginTop: 8 }} onClick={copy}>Copy my address</button>
       </div>
       <div className="card" style={{ background: "var(--card-2)", marginTop: 10 }}>
         <div style={{ fontWeight: 700, marginBottom: 4 }}>2 · OTC desk</div>
@@ -670,6 +683,15 @@ function GetPrlSheet({ address, onCopied, onClose }) {
         <button className="btn small" style={{ marginTop: 8 }} onClick={verify}>Check my clipboard vs my address</button>
         {check === true && <div className="small" style={{ color: "var(--green)", marginTop: 6 }}>✅ Clipboard matches your address — safe to submit.</div>}
         {check === false && <div className="err" style={{ marginTop: 6 }}>⚠️ CLIPBOARD DOESN'T MATCH. Something changed your copied address — do not submit it. Re-copy above.</div>}
+        {check === undefined && (
+          <div style={{ marginTop: 8 }}>
+            <div className="small" style={{ marginBottom: 4 }}>Couldn't read your clipboard — paste what you submitted below and I'll compare:</div>
+            <textarea className="input mono" rows={2} value={pasted} onChange={(e) => setPasted(e.target.value)} />
+            <div className="small mt8" style={{ color: pasted.trim() === address ? "var(--green)" : "var(--red)" }}>
+              {pasted.trim() ? (pasted.trim() === address ? "✅ Matches your address." : "⚠️ DOES NOT MATCH — do not submit that withdrawal.") : ""}
+            </div>
+          </div>
+        )}
       </div>
       <div className="small mt8 center">Network fee reference: typical send ≈ 0.0001 PRL. Fund with at least 0.01 PRL to be comfortably spendable.</div>
     </Sheet>

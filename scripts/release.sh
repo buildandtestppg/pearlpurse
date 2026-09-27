@@ -22,6 +22,8 @@ p.write_text(json.dumps(rs, indent=2) + "\n")
 print(f"published: v{v} {bundle} sha256={sha[:16]}… ({len(rs)} releases tracked)")
 PY
 
+cp public/releases.json dist/releases.json  # dist was built before this update — sync it
+
 if [ "${1:-}" = "--deploy" ]; then
   echo "▶ deploying"
   bash deploy.sh

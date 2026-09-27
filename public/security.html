@@ -61,16 +61,6 @@
 
   <div class="foot">PearlPurse is community-built, not affiliated with Pearl Research Labs. <a href="/">← back to wallet</a></div>
 </div>
-<script>
-  // render published builds from /releases.json so this page never goes stale
-  fetch('/releases.json').then(r => r.ok ? r.json() : []).then(rs => {
-    const t = document.getElementById('builds');
-    rs.slice(-5).reverse().forEach(r => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `<td>${r.version}</td><td class="mono">${r.bundle}</td><td class="mono">${r.sha256.slice(0, 16)}…</td>`;
-      t.appendChild(tr);
-    });
-  }).catch(() => {});
-</script>
+<script src="/security-builds.js"></script>
 </body>
 </html>
