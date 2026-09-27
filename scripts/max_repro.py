@@ -63,7 +63,7 @@ class Handler(BaseHTTPRequestHandler):
         # static
         f = DIST / (p.lstrip("/") or "index.html")
         if f.is_dir(): f = f / "index.html"
-        if not f.exists(): return self._send(404, "nope", "text/plain")
+        if not f.exists(): f = DIST / "index.html"
         ctype = "text/html" if f.suffix == ".html" else "application/javascript" if f.suffix == ".js" else "text/css"
         self._send(200, f.read_bytes(), ctype)
 
@@ -231,6 +231,25 @@ ev("[...document.querySelectorAll('.sheet button')].find(b => b.textContent.trim
 time.sleep(1)
 verdict = ev("document.querySelector('.sheet')?.innerText.includes('Valid signature')")
 print("verify verdict:", verdict, "|", fill, flush=True)
+# ---- pearl: URI prefill (v0.4.9) ----
+send("Page.navigate", {"url": f"http://127.0.0.1:{PORT}/pearl:pay?addr={RCPT}&amount=0.5&label=Test%20payment"})
+time.sleep(5)
+# unlock if locked (navigation re-locked the session)
+body = str(ev("document.body.innerText"))
+if "unlock" in body.lower():
+    ev("""(() => {
+      const el = document.querySelector('input[type=password]');
+      const s = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+      s.call(el, 'testpass123'); el.dispatchEvent(new Event('input', {bubbles: true}));
+    })()""")
+    time.sleep(0.5)
+    ev("[...document.querySelectorAll('button')].find(b => /unlock/i.test(b.textContent))?.click()")
+    time.sleep(6)
+time.sleep(2)
+sheet_h3 = ev("document.querySelector('.sheet h3')?.textContent")
+inputs = ev("[...document.querySelectorAll('.sheet input')].map(i=>i.value.slice(0,20)).join('|')")
+banner = ev("document.querySelector('.sheet')?.innerText.includes('Request:')")
+print("URI prefill: sheet =", sheet_h3, "| inputs =", str(inputs)[:90], "| banner =", banner, flush=True)
 print("=== console/exceptions ===", flush=True)
 n = 0
 for e in events:

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Security, reproducible builds &amp; contact — PearlPurse</title>
+<meta name="description" content="PearlPurse security posture: threat model, reproducible builds with published checksums, coordinated disclosure, and how to verify the deployed bundle." />
+<link rel="icon" type="image/svg+xml" href="/pearl.svg" />
+<style>
+  :root { --bg:#202727; --card:#2a3333; --border:#3c4444; --text:#f2f4ef; --muted:#a8b3ad; --green:#cde986; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Space Grotesk", ui-sans-serif, system-ui, sans-serif; background:var(--bg); color:var(--text); line-height:1.55; }
+  .wrap { max-width:680px; margin:0 auto; padding:48px 22px 64px; }
+  h1 { font-size:28px; margin-bottom:6px; } .sub { color:var(--muted); margin-bottom:26px; }
+  h2 { font-size:19px; margin:32px 0 10px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:18px; margin-bottom:12px; }
+  code, .mono { font-family:ui-monospace,"SF Mono",Menlo,monospace; font-size:13px; background:#1a2020; padding:2px 6px; border-radius:6px; }
+  ul { margin:6px 0 0 18px; } li { margin-bottom:6px; }
+  a { color:var(--green); }
+  .foot { color:var(--muted); font-size:13.5px; margin-top:40px; border-top:1px solid var(--border); padding-top:16px; }
+  table { width:100%; border-collapse:collapse; font-size:13.5px; }
+  td, th { text-align:left; padding:8px 6px; border-bottom:1px solid var(--border); } th { color:var(--muted); font-weight:600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Security &amp; builds</h1>
+  <div class="sub">What PearlPurse protects against, what it doesn't, and how to verify every byte we deploy.</div>
+
+  <h2>Verify the deployed build</h2>
+  <div class="card">
+    <p style="margin-bottom:8px">Every release is built reproducibly and its SHA-256 checksums are published here and in the repo's <span class="mono">releases.json</span>. To verify the live site matches the source:</p>
+    <ol style="margin-left:18px; color:var(--muted)">
+      <li>Clone <a href="https://github.com/buildandtestppg/pearlpurse">the repo</a> at the release tag</li>
+      <li><span class="mono">npm ci &amp;&amp; npm run build</span></li>
+      <li>Compare <span class="mono">sha256sum dist/assets/*</span> against the table below</li>
+      <li>Confirm the bundle name served at <a href="/">pearlpurse.vercel.app</a> matches</li>
+    </ol>
+  </div>
+  <div class="card"><table id="builds"><tr><th>release</th><th>bundle</th><th>sha-256</th></tr></table></div>
+
+  <h2>Threat model (honest)</h2>
+  <div class="card">
+    <ul>
+      <li><b>Protected:</b> seed at rest (PBKDF2-600k AES-256-GCM vault, password never stored), XSS exfiltration (strict CSP <span class="mono">script-src 'self'</span>), clipboard address-swap (in-app sanity check), sub-fee/dust sends (build-time guards), single-UTXO fee mis-estimates (real fee curve + headroom).</li>
+      <li><b>Not protected (yet):</b> a compromised <i>device</i> (keyloggers, malicious browser extensions read the decrypted seed from memory), server-side index lying (Blockbook is trusted for balances — SPV verification is on the roadmap), physical coercion.</li>
+      <li><b>Never:</b> we can't move your funds, reset your password, or recover your seed. That's the point.</li>
+    </ul>
+  </div>
+
+  <h2>Disclosure</h2>
+  <div class="card">Found something? Email <a href="mailto:mojojojoppgweb3@gmail.com">mojojojoppgweb3@gmail.com</a> (PGP forthcoming) with details and a repro. Coordinated disclosure, credit by default, 90-day window. Funds-relevant bugs are eligible for a bounty from the maintainer.</div>
+
+  <h2>Stack hardening</h2>
+  <div class="card"><ul>
+    <li>Strict CSP + nosniff + DENY framing + no-referrer (vercel.json headers)</li>
+    <li>Same-origin relay only — wallet never calls third-party origins</li>
+    <li>Zero runtime dependencies in the API path; Node 22 pinned</li>
+    <li>88 automated tests: crypto vectors, system, security, vault, rotation</li>
+  </ul></div>
+
+  <div class="foot">PearlPurse is community-built, not affiliated with Pearl Research Labs. <a href="/">← back to wallet</a></div>
+</div>
+<script>
+  // render published builds from /releases.json so this page never goes stale
+  fetch('/releases.json').then(r => r.ok ? r.json() : []).then(rs => {
+    const t = document.getElementById('builds');
+    rs.slice(-5).reverse().forEach(r => {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td>${r.version}</td><td class="mono">${r.bundle}</td><td class="mono">${r.sha256.slice(0, 16)}…</td>`;
+      t.appendChild(tr);
+    });
+  }).catch(() => {});
+</script>
+</body>
+</html>

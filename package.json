@@ -1,6 +1,6 @@
 {
   "name": "pearlpurse",
-  "version": "0.4.4",
+  "version": "0.4.9",
   "private": false,
   "description": "The first web wallet for Pearl ($PRL) — non-custodial, encrypted, browser-only. Live at pearlpurse.vercel.app",
   "license": "ISC",
@@ -10,7 +10,17 @@
   },
   "homepage": "https://pearlpurse.vercel.app",
   "bugs": "https://github.com/buildandtestppg/pearlpurse/issues",
-  "keywords": ["pearl", "prl", "wallet", "taproot", "bip86", "bitcoin-like", "utxo", "non-custodial", "web-wallet"],
+  "keywords": [
+    "pearl",
+    "prl",
+    "wallet",
+    "taproot",
+    "bip86",
+    "bitcoin-like",
+    "utxo",
+    "non-custodial",
+    "web-wallet"
+  ],
   "type": "module",
   "scripts": {
     "dev": "vite",

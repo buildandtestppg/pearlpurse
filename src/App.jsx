@@ -17,6 +17,24 @@ const fmt = (a) => {
 };
 const short = (a) => a ? a.slice(0, 10) + "…" + a.slice(-8) : "";
 
+// ---- pearl: URI scheme v0 (pearl:pay?addr=&amount=&label=&message=) ----
+export function parsePearlURI(text) {
+  const t = (text || "").trim();
+  const m = t.match(/pearl:(\/\/)?pay\?[^\s]*/i); // direct launch OR http path fallback
+  if (!m) return null;
+  try {
+    const q = new URLSearchParams(m[0].split("?")[1]);
+    const addr = q.get("addr") || q.get("address") || "";
+    const amount = q.get("amount") || "";
+    const label = q.get("label") || "";
+    const message = q.get("message") || "";
+    if (!addr) return null;
+    const amtOk = !amount || /^\d+(\.\d{1,8})?$/.test(amount);
+    if (!amtOk) return null;
+    return { addr, amount, label, message };
+  } catch { return null; }
+}
+
 // Electrum-style gap-limit discovery: parallel probes until 20 consecutive unused
 const GAP = 20;
 async function discoverWallet(root) {
@@ -59,6 +77,7 @@ export default function App() {
   const [unlockErr, setUnlockErr] = useState("");
   const [unlockBusy, setUnlockBusy] = useState(false);
   const [lastActive, setLastActive] = useState(Date.now());
+  const [pendingURI, setPendingURI] = useState(null); // pearl: pay request captured pre-unlock
   const [data, setData] = useState(null);
   const [sheet, setSheet] = useState(null);
   const [detailTx, setDetailTx] = useState(null); // 'create' | 'import' | 'send' | 'receive' | 'settings'
@@ -72,6 +91,17 @@ export default function App() {
     if (w.vault) setLocked(true);
     else setWallet(w); // legacy plaintext (dev only) — wiped on next save
   }, []);
+
+  // pearl: URI → pre-fill Send (works pre- and post-unlock; sheet opens after decrypt)
+  const openPayRequest = (uriText) => {
+    const r = parsePearlURI(uriText);
+    if (r) setPendingURI(r);
+  };
+  useEffect(() => {
+    if (location.protocol === "pearl:" || location.href.includes("pearl:")) openPayRequest(location.href);
+  }, []);
+  // when unlocked with a pending request → open Send pre-filled
+  useEffect(() => { if (wallet && pendingURI) setSheet("send"); }, [wallet, pendingURI]);
 
   // one-time migration: pre-rotation wallets (no highestUsed) get gap-20 discovery on first unlock
   useEffect(() => {
@@ -221,6 +251,9 @@ export default function App() {
         <button className="btn" onClick={() => setSheet("receive")}>⬇ Receive</button>
         <button className="btn primary" onClick={() => setSheet("send")}>⬆ Send</button>
       </div>
+      <div style={{ textAlign: "center", margin: "-8px 0 10px" }}>
+        <button className="btn ghost small" onClick={() => setSheet("getprl")}>＋ Get PRL — how to fund this wallet</button>
+      </div>
 
       {error && <div className="err">{error}</div>}
 
@@ -265,6 +298,7 @@ export default function App() {
       {sheet === "receive" && <ReceiveSheet address={wallet.address} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "sign" && <SignSheet wallet={wallet} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "verify" && <VerifySheet onClose={() => setSheet(null)} />}
+      {sheet === "getprl" && <GetPrlSheet address={wallet.address} onCopied={notify} onClose={() => setSheet(null)} />}
       {detailTx && (
         <TxDetailSheet
           tx={detailTx}
@@ -275,10 +309,11 @@ export default function App() {
       {sheet === "send" && (
         <SendSheet
           onReceive={() => setSheet("receive")}
+          prefill={pendingURI}
           wallet={wallet}
           utxos={data?.utxos || []}
           balance={data?.confirmed || 0n}
-          onClose={() => setSheet(null)}
+          onClose={() => { setSheet(null); setPendingURI(null); }}
           onSent={async (hex) => {
             const r = await broadcastTx(hex);
             notify("Broadcast — " + (r.result || "submitted"));
@@ -417,9 +452,10 @@ function TxDetailSheet({ tx, onClose, ourAddrs }) {
   );
 }
 
-function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
-  const [to, setTo] = useState("");
-  const [amount, setAmount] = useState("");
+function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill }) {
+  const [to, setTo] = useState(prefill?.addr || "");
+  const [uriNote, setUriNote] = useState(prefill?.label || prefill?.message || "");
+  const [amount, setAmount] = useState(prefill?.amount || "");
   const [feeRate, setFeeRate] = useState(null);
   const [feeMode, setFeeMode] = useState("std"); // slow 0.8x · std 1x · fast 1.5x
   const [maxActive, setMaxActive] = useState(false); // MAX = live mode, recomputed on fee/balance change
@@ -571,9 +607,10 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
         })()
       ) : (
         <>
+          {uriNote && <div className="small" style={{ background: "var(--card-2)", borderRadius: 10, padding: "8px 10px", marginBottom: 10 }}>Request: <b>{uriNote}</b></div>}
           <div className="field">
             <label>Recipient</label>
-            <input className="input mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
+            <input className="input mono" value={to} {...(uriNote ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
           </div>
           <div className="field">
             <label>Amount (PRL)</label>
@@ -599,6 +636,42 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
           }} disabled={!to || !amount || !effRate}>Review</button>
         </>
       )}
+    </Sheet>
+  );
+}
+
+function GetPrlSheet({ address, onCopied, onClose }) {
+  const [pasted, setPasted] = useState("");
+  const [check, setCheck] = useState(null); // true/false
+  const verify = () => {
+    navigator.clipboard.readText().then((t) => {
+      setPasted(t);
+      setCheck(t.trim() === address);
+    }).catch(() => setCheck(null));
+  };
+  return (
+    <Sheet title="Get PRL" sub="three ways to fund this wallet" onClose={onClose}>
+      <div className="card" style={{ background: "var(--card-2)" }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>1 · Withdraw from SafeTrade</div>
+        <div className="small">The only exchange listing PRL today. Withdraw → paste your address → double-check the first & last 6 chars → send a small test amount first (min withdrawal fees apply).</div>
+        <button className="btn small" style={{ marginTop: 8 }} onClick={() => { navigator.clipboard.writeText(address); onCopied("Address copied — paste it in SafeTrade"); }}>Copy my address</button>
+      </div>
+      <div className="card" style={{ background: "var(--card-2)", marginTop: 10 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>2 · OTC desk</div>
+        <div className="small">Trading OTC (~$1.16–1.19/PRL)? Ask the desk for settlement to your PearlPurse address — and give them a Schnorr proof-of-address (✍️ Sign) so they know it's yours.</div>
+      </div>
+      <div className="card" style={{ background: "var(--card-2)", marginTop: 10 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>3 · From another wallet</div>
+        <div className="small">Any Pearl wallet can send to your bech32m taproot address. Sender must support bech32m (taproot) withdrawals.</div>
+      </div>
+      <div className="card" style={{ marginTop: 10 }}>
+        <div style={{ fontWeight: 700, marginBottom: 4 }}>✅ Sanity-check the address you pasted</div>
+        <div className="small">Clipboard-hijack malware swaps addresses. After pasting your address anywhere, come back and check it landed intact:</div>
+        <button className="btn small" style={{ marginTop: 8 }} onClick={verify}>Check my clipboard vs my address</button>
+        {check === true && <div className="small" style={{ color: "var(--green)", marginTop: 6 }}>✅ Clipboard matches your address — safe to submit.</div>}
+        {check === false && <div className="err" style={{ marginTop: 6 }}>⚠️ CLIPBOARD DOESN'T MATCH. Something changed your copied address — do not submit it. Re-copy above.</div>}
+      </div>
+      <div className="small mt8 center">Network fee reference: typical send ≈ 0.0001 PRL. Fund with at least 0.01 PRL to be comfortably spendable.</div>
     </Sheet>
   );
 }
