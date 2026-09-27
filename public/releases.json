@@ -4,5 +4,13 @@
     "bundle": "index-D7Wv3ejN.js",
     "sha256": "e981dd4b8e2dcee1bd87e7c7612603a2be4cb3fa6fc2478453923a57a938908e",
     "date": "2026-09-27T03:08:50Z"
+  },
+  {
+    "version": "0.4.10",
+    "bundle": "index-CI-Qldxa.js",
+    "sha256": "a4e692a6d52420c6f0cb62467e3018839165059a1b29104408b8f21c4e2a54ab",
+    "date": "2026-09-27T03:22:34Z",
+    "tag": "v0.4.10",
+    "commit": "a30f2e6"
   }
 ]
