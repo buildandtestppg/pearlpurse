@@ -16,18 +16,18 @@ FUND_TXID = "ab" * 32
 SCENARIO = os.environ.get("SCENARIO", "funded")          # funded | dust | race | fee-switch
 UTXO_ADDR_PLACEHOLDER = "@ADDR@"
 MOCK = {
-    "balanceSat": "1000000000" if os.environ.get("SCENARIO","funded") != "dust" else "90000",  # 10 PRL or dust
+    "balanceSat": "1000000000" if os.environ.get("SCENARIO","funded") != "dust" else os.environ.get("DUST_ATOMS","90000"),  # 10 PRL or dust
     "unconfirmedBalanceSat": "0",
     "txs": "0",
     "transactions": [{
         "txid": FUND_TXID, "confirmations": 12, "blockTime": 1790400000,
         "vin": [{"addresses": ["prl1pexternalexternalexternalexternalextern"], "value": "1100000000"}],
-        "vout": [{"addresses": [UTXO_ADDR_PLACEHOLDER], "value": "1000000000" if os.environ.get("SCENARIO","funded") != "dust" else "90000"},
+        "vout": [{"addresses": [UTXO_ADDR_PLACEHOLDER], "value": "1000000000" if os.environ.get("SCENARIO","funded") != "dust" else os.environ.get("DUST_ATOMS","90000")},
                  {"addresses": ["prl1psomewhereelse"], "value": "99000000"}],
         "fees": "1000000", "size": 250,
     }],
 }
-UTXOS = [{"txid": FUND_TXID, "vout": 0, "value": "1000000000" if os.environ.get("SCENARIO","funded") != "dust" else "90000", "height": 120000, "confirmations": 12}]
+UTXOS = [{"txid": FUND_TXID, "vout": 0, "value": "1000000000" if os.environ.get("SCENARIO","funded") != "dust" else os.environ.get("DUST_ATOMS","90000"), "height": 120000, "confirmations": 12}]
 
 FUNDED = {"addr": None}  # first-seen address gets the 10 PRL
 
@@ -41,7 +41,9 @@ class Handler(BaseHTTPRequestHandler):
         p = self.path
         if "/api/v1/estimatefee/" in p:
             if os.environ.get("SCENARIO") == "race": time.sleep(6)
-            return self._send(200, json.dumps({"result": "0.00555"}))
+            tgt = int(p.rstrip("/").split("/")[-1])
+            curve = {1: "0.00607041", 2: "0.00575785", 5: "0.00010065", 10: "0.00001"}  # live Pearl values Sep 27
+            return self._send(200, json.dumps({"result": curve.get(tgt, "0.00575785")}))
         if "/api/v2/utxo/" in p:
             addr = p.split("/api/v2/utxo/")[1].split("?")[0]
             if FUNDED["addr"] is None: FUNDED["addr"] = addr
@@ -53,6 +55,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._send(200, json.dumps({"balanceSat": "0", "unconfirmedBalanceSat": "0", "transactions": []}))
             m = json.loads(json.dumps(MOCK).replace(UTXO_ADDR_PLACEHOLDER, addr))
             return self._send(200, json.dumps(m))
+        if p.rstrip("/") == "/api/v2":
+            return self._send(200, json.dumps({"blockbook": {"bestHeight": 119536, "mempoolSize": 20,
+                "inSync": True, "inSyncMempool": True}}))
         if "/api/v2/" in p:
             return self._send(200, "{}")
         # static

@@ -5,7 +5,7 @@ import { mnemonicToSeedSync, validateMnemonic } from "@scure/bip39";
 import { HDKey } from "@scure/bip32";
 import { schnorr } from "@noble/curves/secp256k1";
 import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub, PEARL } from "./lib/pearl.js";
-import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, explorerTx, explorerAddr } from "./lib/blockbook.js";
+import { fetchWalletData, fetchWalletDataMulti, broadcastTx, getEstimateFee, getFeeCurve, getNetworkStatus, explorerTx, explorerAddr } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
 
@@ -422,7 +422,13 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
   const [err, setErr] = useState("");
   const [txid, setTxid] = useState("");
 
-  useEffect(() => { getEstimateFee(2).then(setFeeRate).catch(() => setFeeRate(0.0052)); }, []);
+  const [curve, setCurve] = useState(null);   // {fast, std, slow} — real per-block-target rates
+  const [net, setNet] = useState(null);        // {height, mempool, inSync}
+  useEffect(() => {
+    getEstimateFee(2).then(setFeeRate).catch(() => setFeeRate(0.0052));
+    getFeeCurve().then(setCurve).catch(() => {});   // fallback to multipliers if unavailable
+    getNetworkStatus().then(setNet).catch(() => {});
+  }, []);
 
   const amtAtoms = (() => {
     if (!amount) return 0n;
@@ -435,12 +441,15 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
   // fee: taproot vBytes — witness bytes count 1/4 (segwit discount).
   // 1-in/2-out ≈ 141 vB, 1-in/1-out ≈ 110 vB; +8% safety margin.
   const vbytes = 2 * 31 + 10 + 12 + 68 + Math.ceil(66 / 4); // outputs+overhead+input+witness
-  const FEE_MULT = { slow: 0.8, std: 1, fast: 1.5 };
-  const effRate = feeRate ? feeRate * FEE_MULT[feeMode] : null;
+  const FEE_MULT = { slow: 0.8, std: 1, fast: 1.5 }; // fallback only, when the curve endpoint is down
+  const BLOCK_TARGET = { fast: 1, std: 2, slow: 5 };
+  const effRate = curve ? curve[feeMode] : (feeRate ? feeRate * FEE_MULT[feeMode] : null);
+  const feeForModeRate = (m) => (curve ? curve[m] : (feeRate ? feeRate * FEE_MULT[m] : null));
   const rateAtoms = effRate ? BigInt(Math.round(effRate * 1e8)) : 0n; // atoms per kB
   const feeFor = (vb) => rateAtoms * BigInt(vb) / 1000n + (rateAtoms * BigInt(vb) % 1000n > 0n ? 1n : 0n) + 1400n; // ceil + dust-buffer
+  const feeAtomsForRate = (rate) => { const ra = BigInt(Math.round(rate * 1e8)); return ra * BigInt(vbytes) / 1000n + (ra * BigInt(vbytes) % 1000n > 0n ? 1n : 0n) + 1400n; };
   const [feeAtoms, setFeeAtoms] = useState(0n);
-  useEffect(() => { if (effRate) setFeeAtoms(feeFor(vbytes)); }, [effRate, feeMode]);
+  useEffect(() => { if (effRate) setFeeAtoms(feeFor(vbytes)); }, [effRate, feeMode, curve]);
   // MAX is a live mode: amount tracks balance − the fee build() actually charges − 546-atom change floor,
   // recomputed when the estimate lands or the fee mode changes. Editing the amount exits the mode.
   useEffect(() => {
@@ -512,29 +521,48 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive }) {
           </div>
         </>
       ) : feeAtoms && feeAtoms + 546n >= balance ? (
-        <div style={{ textAlign: "center", padding: "8px 0 2px" }}>
-          <div style={{ fontSize: 40, marginBottom: 6 }}>🛑</div>
-          <h3 style={{ marginBottom: 4 }}>You can't send yet</h3>
-          <div className="small" style={{ marginBottom: 14 }}>
-            Your balance can't cover the network fee — receive PRL to this address to unlock sending.
-          </div>
-          <div className="card" style={{ background: "var(--card-2)", textAlign: "left" }}>
-            <div className="kv"><span className="k">Your balance</span><span>{fmt(balance)} PRL</span></div>
-            <div className="kv"><span className="k">Network fee ({feeMode})</span><span>~{fmt(feeAtoms)} PRL</span></div>
-            <div className="kv"><span className="k">Spendable today</span><span>0 PRL</span></div>
-            <div className="kv"><span className="k">Top up to unlock</span><span>≈ {fmt(feeAtoms + 546n - balance > 0n ? feeAtoms + 546n - balance : 546n)} PRL</span></div>
-          </div>
-          <div className="small" style={{ display: "flex", justifyContent: "center", gap: 4, margin: "12px 0 4px" }}>
-            {[["slow","🐢 Slow"],["std","⚡ Std"],["fast","🚀 Fast"]].map(([m,label]) => (
-              <button key={m} className={"btn ghost small" + (feeMode===m ? " on" : "")} style={{ padding: "4px 8px" }} onClick={() => setFeeMode(m)}>{label}</button>
-            ))}
-          </div>
-          <div className="small" style={{ marginBottom: 12 }}>A slower fee needs less — try 🐢 if you're just short.</div>
-          <div className="row2">
-            <button className="btn" onClick={onClose}>Close</button>
-            <button className="btn primary" onClick={onReceive}>⬇ Receive PRL</button>
-          </div>
-        </div>
+        (() => {
+          const MODES = [["slow", "🐢 Slow", "~5 blocks"], ["std", "⚡ Standard", "~2 blocks"], ["fast", "🚀 Fast", "next block"]];
+          const withRates = MODES.map(([m, label, tgt]) => ({ m, label, tgt, rate: feeForModeRate(m) })).filter((x) => x.rate);
+          const sendable = withRates.filter((x) => balance > feeAtomsForRate(x.rate) + 546n);
+          const cheapest = withRates.slice().sort((a, b) => Number(feeAtomsForRate(a.rate) - feeAtomsForRate(b.rate)))[0];
+          const need = cheapest ? feeAtomsForRate(cheapest.rate) + 546n - balance : 546n;
+          return (
+            <div style={{ textAlign: "center", padding: "8px 0 2px" }}>
+              <div style={{ fontSize: 40, marginBottom: 6 }}>{sendable.length ? "✅" : "🛑"}</div>
+              <h3 style={{ marginBottom: 4 }}>{sendable.length ? "You can still send" : "You can't send yet"}</h3>
+              <div className="small" style={{ marginBottom: 14 }}>
+                {sendable.length
+                  ? "Your balance can't cover the standard fee, but a slower confirmation fits."
+                  : "Your balance can't cover the network fee on any confirmation speed. Receive PRL to this address to unlock sending."}
+              </div>
+              <div className="card" style={{ background: "var(--card-2)", textAlign: "left" }}>
+                <div className="kv"><span className="k">Your balance</span><span>{fmt(balance)} PRL</span></div>
+                {withRates.map((x) => (
+                  <div className="kv" key={x.m}>
+                    <span className="k">{x.label} fee <span style={{ letterSpacing: 0, textTransform: "none" }}>({x.tgt})</span></span>
+                    <span>{feeAtomsForRate(x.rate) + 546n < balance ? "✅ " : ""}~{fmt(feeAtomsForRate(x.rate))} PRL</span>
+                  </div>
+                ))}
+                {sendable.length
+                  ? <div className="kv"><span className="k">Switch to</span><span>{sendable.map((x) => x.label.split(" ")[1]).join(" / ")}</span></div>
+                  : <div className="kv"><span className="k">Top up to unlock</span><span>≈ {fmt(need > 0n ? need : 546n)} PRL</span></div>}
+              </div>
+              <div className="small" style={{ display: "flex", justifyContent: "center", gap: 4, margin: "12px 0 4px" }}>
+                {withRates.map((x) => (
+                  <button key={x.m} className={"btn ghost small" + (feeMode === x.m ? " on" : "")} style={{ padding: "4px 8px" }} onClick={() => setFeeMode(x.m)}>{x.label}</button>
+                ))}
+              </div>
+              <div className="small" style={{ marginBottom: 12 }}>
+                {net ? `Network: block ${net.height?.toLocaleString()} · ${net.mempool} tx in mempool · ${net.inSync ? "synced ✅" : "syncing…"}` : "Network: fetching status…"}
+              </div>
+              <div className="row2">
+                <button className="btn" onClick={onClose}>Close</button>
+                <button className="btn primary" onClick={onReceive}>⬇ Receive PRL</button>
+              </div>
+            </div>
+          );
+        })()
       ) : (
         <>
           <div className="field">

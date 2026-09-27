@@ -40,6 +40,25 @@ export async function getEstimateFee(blocks = 2) {
   return parseFloat(j.result);
 }
 
+// real fee curve by confirmation target (blocks). Pearl Sep 2026: 1blk≈0.006, 5blk≈0.0001
+export async function getFeeCurve() {
+  const [fast, std, slow] = await Promise.all([getEstimateFee(1), getEstimateFee(2), getEstimateFee(5)]);
+  const clean = (v) => (Number.isFinite(v) && v > 0 ? v : null);
+  const c = { fast: clean(fast), std: clean(std), slow: clean(slow) };
+  return c.fast && c.std && c.slow ? c : Promise.reject(new Error("fee curve unavailable"));
+}
+
+// live chain state for the send advisory
+export async function getNetworkStatus() {
+  const j = await get("/");
+  const b = j.blockbook || {};
+  return {
+    height: b.bestHeight ?? null,
+    mempool: b.mempoolSize ?? null,
+    inSync: !!(b.inSync && b.inSyncMempool),
+  };
+}
+
 export async function broadcastTx(hex) {
   return post("/sendtx", hex);
 }
