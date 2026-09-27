@@ -30,7 +30,10 @@
     .then(function (r) { if (!r.ok) throw new Error("fee http"); return r.json(); })
     .then(function (j) {
       var f = parseFloat(j.result);
-      if (f > 0) set("st-fee", f < 0.001 ? (f * 1000).toPrecision(2) + "m" : f.toPrecision(2) + "");
+      if (f > 0) {
+        var t = f >= 1 ? f.toFixed(2) : f.toFixed(5).replace(/0+$/, "").replace(/\.$/, "");
+        set("st-fee", t + " PRL");
+      }
     })
     .catch(function () { set("st-status", "network status unavailable — wallet still works"); });
 })();

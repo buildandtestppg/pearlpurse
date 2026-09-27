@@ -1,6 +1,6 @@
 # PearlPurse 🫧
 
-**The first web wallet for [Pearl](https://pearlresearch.ai) ($PRL).** Non-custodial, encrypted, runs entirely in your browser.
+**A non-custodial web wallet for [Pearl](https://pearlresearch.ai) ($PRL).** Non-custodial, encrypted, runs entirely in your browser.
 
 **🔗 Live: [pearlpurse.vercel.app](https://pearlpurse.vercel.app)**
 

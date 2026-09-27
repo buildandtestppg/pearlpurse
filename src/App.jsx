@@ -360,7 +360,7 @@ function Welcome({ onCreate, onImport }) {
       <div className="welcome">
         <img className="logo-big" src="/pearl.svg" alt="" />
         <h1>PearlPurse</h1>
-        <p>The first mobile wallet for Pearl.<br />Keys live on this device only.</p>
+        <p>A non-custodial wallet for Pearl.<br />Keys live on this device only.</p>
 
         {mode === "import" ? (
           <>

@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-<title>PearlPurse — the wallet for Pearl (PRL)</title>
-<meta name="description" content="First wallet for Pearl: non-custodial, taproot, open-source. Send & receive PRL, sign proofs, install as an app. Your keys never leave your device." />
+<title>PearlPurse — non-custodial web wallet for Pearl (PRL)</title>
+<meta name="description" content="Non-custodial web wallet for Pearl: taproot, open-source, installable. Send & receive PRL, sign proofs, install as an app. Your keys never leave your device." />
 <link rel="icon" type="image/svg+xml" href="/pearl.svg" />
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#202727" />
@@ -25,7 +25,8 @@
   .hero h1 .g { color:var(--green); }
   .hero p { color:var(--muted); font-size:17px; max-width:34em; margin-bottom:26px; }
   .cta { display:inline-block; background:var(--green); color:#1c231f; font-weight:700; padding:15px 28px; border-radius:14px; text-decoration:none; font-size:16px; }
-  .cta.ghost { background:transparent; color:var(--text); border:1px solid var(--border); margin-left:10px; }
+  .cta.ghost { background:transparent; color:var(--text); border:1.5px solid #566363; margin-left:10px; }
+  .cta.ghost:hover { border-color:var(--green); color:var(--green); opacity:1; }
   .cta:hover { opacity:0.92; }
   .stats { display:flex; gap:10px; margin:30px 0 6px; flex-wrap:wrap; }
   .stat { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:12px 16px; min-width:130px; }
@@ -53,8 +54,8 @@
   </div>
 
   <div class="hero">
-    <h1>The wallet for <span class="g">Pearl</span>.</h1>
-    <p>Send and receive PRL, prove address ownership with a signature, and install it as a real app on your phone. Non-custodial, open-source, first of its kind — your keys never leave your device.</p>
+    <h1>A wallet for <span class="g">Pearl</span>.</h1>
+    <p>Send and receive PRL, prove address ownership with a signature, and install it as a real app on your phone. Non-custodial, open-source, installable as an app — your keys never leave your device.</p>
     <a class="cta" href="/app">Open the wallet</a><a class="cta ghost" href="/get-started">Get started</a>
     <div class="stats">
       <div class="stat"><div class="v" id="st-block">—</div><div class="k">block height</div></div>
@@ -72,7 +73,7 @@
     <div class="f"><b class="t">✍️ Sign &amp; verify proofs</b><div class="d">Schnorr proof-of-address built in — what OTC desks ask for. Verify anyone's proof in-app.</div></div>
     <div class="f"><b class="t">📈 Honest fees &amp; network state</b><div class="d">Real per-block fee curve, live chain status, and an advisory that tells you exactly what a send costs.</div></div>
     <div class="f"><b class="t">🔗 Payment links</b><div class="d"><span style="font-family:ui-monospace,Menlo,monospace">pearl:pay</span> URIs and QR codes — invoices that open pre-filled in the wallet.</div></div>
-    <div class="f"><b class="t">🛡️ Audited process</b><div class="d">Reproducible builds with published checksums, strict CSP, dual-model code review on every change.</div></div>
+    <div class="f"><b class="t">🛡️ Verifiable builds</b><div class="d">Every release builds reproducibly; SHA-256 checksums published and checkable against the live site. Strict CSP, cross-review on every change.</div></div>
   </div>
 
   <div class="foot">

@@ -10,7 +10,7 @@ VERSION=$(node -p "require('./package.json').version")
 echo "▶ building v$VERSION (deterministic: vite hashes content)"
 npm run build >/dev/null
 
-BUNDLE=$(grep -o 'index-[^"]*\.js' dist/app.html | head -1)
+BUNDLE=$(grep -oE '(index|app)-[^"]*\.js' dist/app.html | head -1)
 SHA=$(shasum -a 256 "dist/assets/$BUNDLE" 2>/dev/null | cut -d' ' -f1 || sha256sum "dist/assets/$BUNDLE" | cut -d' ' -f1)
 TAG="v$VERSION"
 COMMIT=$(git rev-parse --short HEAD)
