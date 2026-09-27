@@ -10,12 +10,23 @@ import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
 
 const ATOM = 100_000_000n;
+const agoDays = (ts) => {
+  const d = Math.floor((Date.now() - ts) / 86400000);
+  return d === 0 ? "today" : d === 1 ? "yesterday" : d + " days ago";
+};
 
 // ── address book (module store — plain localStorage, no secrets) ─────────
 const BOOK_KEY = "pearlpurse.book.v1";
 const book = {
   load: () => { try { return JSON.parse(localStorage.getItem(BOOK_KEY)) || []; } catch { return []; } },
   save: (l) => localStorage.setItem(BOOK_KEY, JSON.stringify(l)),
+};
+
+// ── backup status (device-local; no secrets, just timestamps) ────────────
+const BK_KEY = "pearlpurse.backup.v1";
+const bkStore = {
+  load: () => { try { return JSON.parse(localStorage.getItem(BK_KEY)) || {}; } catch { return {}; } },
+  save: (o) => localStorage.setItem(BK_KEY, JSON.stringify(o)),
 };
 
 // ── private tx notes (device-local) ──────────────────────────────────────
@@ -112,6 +123,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [watching, setWatching] = useState(null); // { label, address } — read-only view
+  const [backup, setBackup] = useState(bkStore.load());
   const [contacts, setContacts] = useState(book.load());
   const [watchData, setWatchData] = useState(null);
   // watch-only: fetch + refresh on pearlpurse:refresh events
@@ -288,6 +300,33 @@ export default function App() {
           store.save({ vault: await seal(m, pw), highestUsed: -1, address, index: 0, ts: Date.now() });
           setWallet({ mnemonic: m, address, index: 0, highestUsed: -1 });
         }}
+        onImport={async (m, pw) => {
+          if (!validateMnemonic(m, wordlist)) throw new Error("Invalid seed phrase — check the words");
+          const root = HDKey.fromMasterSeed(mnemonicToSeedSync(m));
+          // gap-limit discovery: find the highest-used receive address so imported
+          // wallets resume from where they left off (same as unlock path)
+          const first = derivePriv(root, 0);
+          let highest = -1;
+          try {
+            const probe = async (i) => {
+              const a = addressFromPriv(derivePriv(root, i));
+              const d = await fetchAddressBasic(a);
+              return d && (d.txCount > 0 || BigInt(d.totalReceived || "0") > 0n || BigInt(d.totalSent || "0") > 0n) ? i : -1;
+            };
+            const batch = [];
+            for (let i = 0; i < 60; i += 10) {
+              const rs = await Promise.all([0,1,2,3,4,5,6,7,8,9].map((k) => probe(i + k)));
+              const hi = Math.max(...rs);
+              if (hi >= 0) highest = hi;
+              else if (i > highest + 20) break;
+              else if (hi < 0 && i >= 20 && highest < 0) break;
+            }
+          } catch { /* offline or fresh wallet — index 0 */ }
+          const idx = highest + 1;
+          const address = addressFromPriv(derivePriv(root, idx));
+          store.save({ vault: await seal(m, pw), highestUsed: highest, address, index: idx, ts: Date.now() });
+          setWallet({ mnemonic: m, address, index: idx, highestUsed: highest });
+        }}
       />
     );
   }
@@ -350,6 +389,7 @@ export default function App() {
         <div className="kv"><span className="k">Derivation</span><span className="mono" style={{ fontSize: 11 }}>m/86'/808276'/0'/0/{wallet.index}</span></div>
         <div className="kv"><span className="k">Addresses</span><span>{data ? data.addresses.length : "—"} · rotate ↻</span></div>
         <div className="kv"><span className="k">UTXOs</span><span>{data ? data.utxos.length : "—"}</span></div>
+        <div className="kv"><span className="k">Backup</span><span style={{ color: backup.at ? "var(--green)" : "#e5958f" }}>{backup.at ? (backup.kind === "file" ? "📁 file exported" : "✅ seed verified") + " · " + agoDays(backup.at) : "⚠️ never — at risk"}</span></div>
         <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={rotateNow}>↻ New receive address</button>
       </div>
 
@@ -361,6 +401,9 @@ export default function App() {
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("book")}>📒 Address book ({contacts.length})</button>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("proof")}>🛡 Proof of funds</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("safety")}>🔐 Safety check</button>
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
@@ -384,6 +427,7 @@ export default function App() {
         </>
       )}
 
+      {sheet === "safety" && <SafetySheet wallet={wallet} backup={backup} onBackup={setBackup} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "proof" && <ProofSheet wallet={wallet} data={data} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "watchadd" && <WatchAddSheet onAdded={(w) => { setSheet(null); setWatching(w); }} onClose={() => setSheet(null)} />}
       {sheet === "book" && <BookSheet contacts={contacts} onChange={setContacts} onSend={(addr, label) => { setPendingURI({ addr, label }); setSheet("send"); }} onClose={() => setSheet(null)} />}
@@ -922,6 +966,103 @@ function VerifySheet({ onClose }) {
           <div style={{ fontSize: 26 }}>❌</div>
           Invalid — address, message or signature doesn't match.
         </div>
+      )}
+    </Sheet>
+  );
+}
+
+function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
+  const [drill, setDrill] = useState(null); // null | {step, words: [bool;x12], err, passed}
+  const [revealVault, setRevealVault] = useState(false);
+  const [vaultPw, setVaultPw] = useState("");
+  const [vaultFile, setVaultFile] = useState(null);
+  const [vaultErr, setVaultErr] = useState("");
+
+  // Recovery drill: user retypes 3 random of their 12 words; verified locally against the live mnemonic.
+  const startDrill = () => {
+    const idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].sort(() => Math.random() - 0.5).slice(0, 3);
+    setDrill({ idx, inputs: ["", "", ""], err: "", passed: false });
+  };
+  const checkDrill = () => {
+    const words = wallet.mnemonic.split(" ");
+    const ok = drill.idx.every((i, k) => drill.inputs[k].trim().toLowerCase() === words[i]);
+    if (ok) {
+      const b = { ...bkStore.load(), drill: Date.now(), at: backup.at || Date.now(), kind: backup.kind || "drill" };
+      bkStore.save(b); onBackup(b); setDrill({ ...drill, passed: true, err: "" });
+    } else setDrill({ ...drill, passed: false, err: "One or more words don't match. Check your paper backup — this is exactly the moment you want to find mistakes." });
+  };
+
+  // Encrypted vault export: download the SAME sealed vault the device stores.
+  const exportVault = () => {
+    const saved = store.load();
+    if (!saved) return setVaultErr("No vault on this device");
+    const blob = new Blob([JSON.stringify({ v: 1, kind: "pearlpurse-vault-backup", exported: new Date().toISOString(), vault: saved.vault })], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "pearlpurse-backup-" + new Date().toISOString().slice(0, 10) + ".json";
+    a.click();
+    URL.revokeObjectURL(a.href);
+    const b = { ...bkStore.load(), file: Date.now(), at: Date.now(), kind: "file" };
+    bkStore.save(b); onBackup(b);
+    notify("Encrypted backup downloaded");
+  };
+
+  const lastDrill = backup.drill ? agoDays(backup.drill) : "never";
+  const lastFile = backup.file ? agoDays(backup.file) : "never";
+
+  return (
+    <Sheet title="🔐 Safety check" sub="don't lose your PRL — prove you can recover" onClose={onClose}>
+      <div className="card" style={{ marginBottom: 12 }}>
+        <div className="kv"><span className="k">Seed drill</span><span>{backup.drill ? "✅ " + lastDrill : "⚠️ never done"}</span></div>
+        <div className="kv"><span className="k">Encrypted backup file</span><span>{backup.file ? "📁 " + lastFile : "⚠️ never exported"}</span></div>
+        <div className="small" style={{ color: "var(--muted)", marginTop: 8 }}>The seed drill retypes 3 random words of your phrase — proving your paper backup is real and readable. The backup file is your encrypted vault, password-protected, restorable on any device.</div>
+      </div>
+
+      {!drill ? (
+        <button className="btn primary" style={{ width: "100%", marginBottom: 10 }} onClick={startDrill}>🏋️ Run recovery drill (3 words)</button>
+      ) : drill.passed ? (
+        <div className="card" style={{ background: "#223026", borderColor: "#3f5a46", textAlign: "center", marginBottom: 10 }}>
+          <div style={{ fontSize: 30 }}>✅</div>
+          <div style={{ fontWeight: 700 }}>Backup verified</div>
+          <div className="small">Your paper backup works. Next drill in ~90 days.</div>
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="small" style={{ marginBottom: 8 }}>Type word <b>#{drill.idx[0] + 1}</b>, <b>#{drill.idx[1] + 1}</b> and <b>#{drill.idx[2] + 1}</b> from your 12-word phrase (positions, in order shown):</div>
+          {[0, 1, 2].map((k) => (
+            <div className="field" key={k} style={{ display: "flex", gap: 8, alignItems: "center" }}>
+              <span className="mono small" style={{ color: "var(--muted)", width: 26 }}>#{drill.idx[k] + 1}</span>
+              <input className="input mono" style={{ flex: 1 }} value={drill.inputs[k]} onChange={(e) => { const inp = [...drill.inputs]; inp[k] = e.target.value; setDrill({ ...drill, inputs: inp, err: "" }); }} placeholder={"word " + (drill.idx[k] + 1)} autoComplete="off" />
+            </div>
+          ))}
+          {drill.err && <div className="err">{drill.err}</div>}
+          <div className="row2 mt8">
+            <button className="btn" onClick={() => setDrill(null)}>Cancel</button>
+            <button className="btn primary" onClick={checkDrill}>Check</button>
+          </div>
+        </div>
+      )}
+
+      <button className="btn" style={{ width: "100%", marginBottom: 10 }} onClick={exportVault}>📁 Export encrypted backup file</button>
+
+      {revealVault ? (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="field"><label>Vault password (to verify the backup opens)</label>
+            <input className="input" type="password" value={vaultPw} onChange={(e) => setVaultPw(e.target.value)} placeholder="••••••••" /></div>
+          <input type="file" accept="application/json,.json" onChange={async (e) => {
+            setVaultErr("");
+            try {
+              const j = JSON.parse(await e.target.files[0].text());
+              if (j.kind !== "pearlpurse-vault-backup" || !j.vault) throw new Error("Not a PearlPurse backup file");
+              await unseal(j.vault, vaultPw);
+              setVaultFile(j.exported);
+            } catch (err) { setVaultFile(null); setVaultErr("Wrong password or corrupted file: " + (err.message || "")); }
+          }} />
+          {vaultFile && <div className="small" style={{ color: "var(--green)", marginTop: 8 }}>✅ Backup opens — vault from {vaultFile.slice(0, 10)} decrypted with this password.</div>}
+          {vaultErr && <div className="err" style={{ marginTop: 8 }}>{vaultErr}</div>}
+        </div>
+      ) : (
+        <button className="btn ghost" style={{ width: "100%" }} onClick={() => setRevealVault(true)}>🧪 Test a backup file restores…</button>
       )}
     </Sheet>
   );
