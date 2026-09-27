@@ -360,6 +360,7 @@ export default function App() {
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("book")}>📒 Address book ({contacts.length})</button>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("proof")}>🛡 Proof of funds</button>
       </div>
       <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
         <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
@@ -383,6 +384,7 @@ export default function App() {
         </>
       )}
 
+      {sheet === "proof" && <ProofSheet wallet={wallet} data={data} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "watchadd" && <WatchAddSheet onAdded={(w) => { setSheet(null); setWatching(w); }} onClose={() => setSheet(null)} />}
       {sheet === "book" && <BookSheet contacts={contacts} onChange={setContacts} onSend={(addr, label) => { setPendingURI({ addr, label }); setSheet("send"); }} onClose={() => setSheet(null)} />}
       {sheet === "receive" && <ReceiveSheet address={wallet.address} onClose={() => setSheet(null)} notify={notify} />}
@@ -920,6 +922,48 @@ function VerifySheet({ onClose }) {
           <div style={{ fontSize: 26 }}>❌</div>
           Invalid — address, message or signature doesn't match.
         </div>
+      )}
+    </Sheet>
+  );
+}
+
+function ProofSheet({ wallet, data, onClose, notify }) {
+  // OTC proof-of-funds: standardized envelope anyone can verify at /verify
+  const [stamp] = useState(() => new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC");
+  const proofMsg = `PROOF-OF-FUNDS\naddress: ${wallet.address}\nas-of: ${stamp}\nbalance: ${data ? (Number(data.confirmed) / 1e8).toFixed(8) : "0.00000000"} PRL (confirmed, on-chain at blockbook.pearlresearch.ai)\npurpose: demonstrate control of this address to a counterparty\nnote: proves address control + balance snapshot; not a bank statement`;
+  const [sig, setSig] = useState("");
+  const [busy, setBusy] = useState(false);
+  const make = () => {
+    setBusy(true);
+    setTimeout(() => {
+      try {
+        const root = HDKey.fromMasterSeed(mnemonicToSeedSync(wallet.mnemonic));
+        const priv = derivePriv(root, wallet.index);
+        setSig(signMessage(priv, null, proofMsg));
+      } catch (e) { notify("Sign failed: " + e.message); }
+      setBusy(false);
+    }, 30);
+  };
+  const envelope = sig ? JSON.stringify({ v: 1, kind: "pearlpurse-proof-of-funds", address: wallet.address, message: proofMsg, sig }, null, 2) : "";
+  return (
+    <Sheet title="🛡 Proof of funds" sub="OTC-desk standard · verifiable by anyone" onClose={onClose}>
+      <div className="warn" style={{ marginBottom: 12 }}>Signs a standardized PROOF-OF-FUNDS message binding your address, a timestamp and its confirmed balance. Anyone can verify the envelope at <b>/verify</b> without trusting us.</div>
+      <div className="card mono" style={{ fontSize: 11, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "var(--card-2)", marginBottom: 12 }}>{proofMsg}</div>
+      {!sig ? (
+        <button className="btn primary" style={{ width: "100%" }} disabled={busy} onClick={make}>{busy ? "Signing…" : "✍️ Sign proof"}</button>
+      ) : (
+        <>
+          <div className="card" style={{ background: "#223026", borderColor: "#3f5a46", marginBottom: 12, textAlign: "center" }}>
+            <div style={{ fontSize: 30 }}>✅</div>
+            <div style={{ fontWeight: 700 }}>Proof signed</div>
+            <div className="small">Send the envelope below to your counterparty.</div>
+          </div>
+          <div className="card mono" style={{ fontSize: 10.5, whiteSpace: "pre-wrap", wordBreak: "break-all", background: "var(--card-2)", maxHeight: 180, overflow: "auto" }}>{envelope}</div>
+          <div className="row2 mt16">
+            <button className="btn" onClick={() => navigator.clipboard?.writeText(envelope).then(() => notify("Envelope copied"))}>📋 Copy envelope</button>
+            <a className="btn ghost" style={{ textDecoration: "none", textAlign: "center" }} href="/verify" target="_blank" rel="noreferrer">Verify page ↗</a>
+          </div>
+        </>
       )}
     </Sheet>
   );

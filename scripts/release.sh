@@ -8,7 +8,8 @@ set -e
 [ -z "$(git status --porcelain)" ] || { echo "✖ dirty tree — commit first (reproducibility)"; exit 1; }
 VERSION=$(node -p "require('./package.json').version")
 echo "▶ building v$VERSION (deterministic: vite hashes content)"
-npm run build >/dev/null
+npm run build
+ cp dist/assets/verify-*.js dist/verify-check.js 2>/dev/null || true >/dev/null
 
 BUNDLE=$(grep -oE '(index|app)-[^"]*\.js' dist/app.html | head -1)
 SHA=$(shasum -a 256 "dist/assets/$BUNDLE" 2>/dev/null | cut -d' ' -f1 || sha256sum "dist/assets/$BUNDLE" | cut -d' ' -f1)

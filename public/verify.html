@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Verify a proof — PearlPurse</title>
+<meta name="description" content="Verify PearlPurse proof-of-funds envelopes and Schnorr proof-of-address signatures. Runs entirely in your browser — nothing is sent anywhere." />
+<link rel="icon" type="image/svg+xml" href="/pearl.svg" />
+<style>
+  :root { --bg:#202727; --card:#2a3333; --card2:#313a3a; --border:#3c4444; --text:#f2f4ef; --muted:#a8b3ad; --green:#cde986; --sky:#8fd4db; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:"Space Grotesk", ui-sans-serif, system-ui, sans-serif; background:var(--bg); color:var(--text); line-height:1.55; }
+  .wrap { max-width:640px; margin:0 auto; padding:36px 20px 60px; }
+  h1 { font-size:26px; margin-bottom:6px; }
+  .sub { color:var(--muted); font-size:14px; margin-bottom:22px; }
+  .card { background:var(--card); border:1px solid var(--border); border-radius:14px; padding:16px; }
+  textarea { width:100%; background:var(--card2); border:1px solid var(--border); color:var(--text); border-radius:10px; padding:12px; font-family:ui-monospace,Menlo,monospace; font-size:12px; min-height:170px; resize:vertical; }
+  textarea:focus { outline:none; border-color:var(--green); }
+  button { width:100%; margin-top:12px; background:var(--green); color:#1c231f; border:none; font-weight:700; font-size:15px; padding:14px; border-radius:12px; cursor:pointer; font-family:inherit; }
+  .res { margin-top:16px; border-radius:14px; padding:18px; text-align:center; display:none; }
+  .ok { background:#223026; border:1px solid #3f5a46; }
+  .bad { background:#33232a; border:1px solid #5a3f46; }
+  .mono { font-family:ui-monospace,Menlo,monospace; }
+  .kv { display:flex; justify-content:space-between; gap:10px; font-size:13px; padding:5px 0; border-bottom:1px solid #2e3636; text-align:left; }
+  .kv:last-child { border:none; }
+  .k { color:var(--muted); }
+  .foot { margin-top:26px; color:var(--muted); font-size:12.5px; text-align:center; }
+  a { color:var(--green); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>Verify a proof</h1>
+  <div class="sub">Paste a PearlPurse proof-of-funds envelope (JSON) or a raw message + signature pair. Verification is Schnorr, runs 100% in this page — no network calls, no data leaves your device.</div>
+  <div class="card">
+    <textarea id="inp" placeholder='{"v":1,"kind":"pearlpurse-proof-of-funds","address":"prl1…","message":"PROOF-OF-FUNDS\n…","sig":"…"} — or two lines: the signed message, then the 64-hex signature, then the address'></textarea>
+    <button id="go">🔍 Verify</button>
+  </div>
+  <div id="res" class="res"></div>
+  <div class="foot">PearlPurse · <a href="/">home</a> · <a href="/security">security</a> · format: PROOF-OF-FUNDS v1</div>
+</div>
+<script src="/verify-check.js"></script>
+</body>
+</html>

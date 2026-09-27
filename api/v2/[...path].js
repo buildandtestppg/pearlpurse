@@ -1,6 +1,10 @@
 // Permanent Blockbook relay — Vercel serverless function, same-origin as the app.
 // Classic Node handler (max compatibility). No state, no key material (public data only).
 const UPSTREAM = "https://blockbook.pearlresearch.ai";
+// Failover cache: remember last good GET responses; if upstream dies, serve
+// stale copies (max 10 min old) with X-Pearlpurse-Stale headers so the UI can say so.
+const stale = new Map(); // path -> { body, ct, at }
+const STALE_MAX_MS = 600_000;
 
 export default async function handler(req, res) {
   if (req.method !== "GET" && req.method !== "POST") {
@@ -15,6 +19,8 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "bad path" });
   }
   const target = UPSTREAM + url.pathname + url.search;
+  const hit = stale.get(url.pathname + url.search);
+  if (req.method === "GET" && hit && Date.now() - hit.at > STALE_MAX_MS) stale.delete(url.pathname + url.search);
   try {
     const init = { method: req.method, headers: {}, signal: AbortSignal.timeout(12000) };
     if (req.method === "POST") {

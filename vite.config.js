@@ -5,7 +5,7 @@ export default defineConfig({
   plugins: [react()],
   build: {
     rollupOptions: {
-      input: { app: "/app.html" },
+      input: { app: "/app.html", verify: "/src/verify-entry.js" },
     },
   },
   server: {
