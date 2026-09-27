@@ -20,5 +20,13 @@
     "date": "2026-09-27T04:47:51Z",
     "tag": "v0.4.12",
     "commit": "adbe346"
+  },
+  {
+    "version": "0.4.13",
+    "bundle": "app-BFOyj3lB.js",
+    "sha256": "8976956d0522466eec9d7ace53967891dad3c1bb26d7171626ca4fd02942d0ae",
+    "date": "2026-09-27T05:20:16Z",
+    "tag": "v0.4.13",
+    "commit": "14d5512"
   }
 ]
