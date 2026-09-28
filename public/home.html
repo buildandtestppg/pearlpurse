@@ -30,10 +30,10 @@
   .logo img { width:34px; height:34px; }
   .top a.l { color:var(--muted); font-size:13.5px; text-decoration:none; } .top a.l:hover { color:var(--green); }
   .hero { position:relative; }
-  .hero-bg { position:absolute; right:-40px; top:-70px; width:56%; max-width:760px; height:calc(100% + 140px); object-fit:cover; object-position:right center; opacity:0.5; pointer-events:none;
-    -webkit-mask-image:linear-gradient(to left, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%); mask-image:linear-gradient(to left, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);
-    -webkit-mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 45%); mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 45%); }
-  .hero h1, .hero p, .hero .cta, .hero .stats, .hero .live, .hero .srcnote { position:relative; z-index:1; }
+  .hero-bg { position:absolute; inset:0; width:100%; height:100%; object-fit:cover; object-position:center 30%; opacity:0.85; pointer-events:none;
+    filter:brightness(0.9); }
+  .hero::before { content:""; position:absolute; inset:0; background:linear-gradient(100deg, #202727 0%, #202727ee 34%, #20272799 58%, #20272722 82%, transparent 100%), linear-gradient(to top, #202727 0%, transparent 30%); pointer-events:none; }
+  .hero h1, .hero p, .hero .cta, .hero .stats, .hero .live, .hero .srcnote { position:relative; z-index:2; }
   .hero h1 { font-size:40px; letter-spacing:-1px; line-height:1.1; margin-bottom:16px; }
   .hero h1 .g { color:var(--green); }
   .hero p { color:var(--muted); font-size:17px; max-width:34em; margin-bottom:26px; }
@@ -51,7 +51,10 @@
   .live .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); margin-right:6px; animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.35;} }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:30px; }
-  @media (max-width:560px) { .grid { grid-template-columns:1fr; } .hero h1 { font-size:32px; } .cta.ghost { margin-left:0; margin-top:10px; } .hero-bg { width:100%; right:0; top:-40px; opacity:0.32; } }
+  .artband { position:relative; margin:44px 0 8px; border-radius:18px; overflow:hidden; border:1px solid var(--border); }
+  .artband img { width:100%; display:block; aspect-ratio:3/1; object-fit:cover; object-position:center 40%; }
+  .artband-cap { position:absolute; bottom:0; left:0; right:0; padding:26px 24px 16px; background:linear-gradient(to top, #202727e6, transparent); color:var(--muted); font-size:13.5px; letter-spacing:0.4px; }
+  @media (max-width:560px) { .grid { grid-template-columns:1fr; } .hero h1 { font-size:32px; } .cta.ghost { margin-left:0; margin-top:10px; } .hero-bg { opacity:0.55; } }
   .f { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; }
   .f b.t { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:15px; }
   .f .d { color:var(--muted); font-size:13.5px; }
@@ -85,7 +88,8 @@
     <div class="srcnote">price · hashrate · difficulty from <a href="https://prlstats.com" target="_blank" rel="noreferrer">prlstats.com</a> (BETA) — block · fees · mempool from <a href="https://blockbook.pearlresearch.ai" target="_blank" rel="noreferrer">blockbook</a>. Community-run sources, not official oracles.</div>
   </div>
 
-  <div class="install"><b>📱 Install as an app:</b> iOS Safari → Share → <i>Add to Home Screen</i> · Android Chrome → <i>Install app</i>. Full-screen, own icon, works like a native wallet.</div>
+  <div class="artband"><img src="/hero.webp" alt="A luminous pearl on the dark seabed" loading="lazy" /><div class="artband-cap">your keys, kept like treasure — at the bottom of the sea, in your hands only</div></div>
+<div class="install"><b>📱 Install as an app:</b> iOS Safari → Share → <i>Add to Home Screen</i> · Android Chrome → <i>Install app</i>. Full-screen, own icon, works like a native wallet.</div>
 
   <div class="grid">
     <div class="f"><b class="t">🔑 Non-custodial</b><div class="d">Seed encrypted on-device (PBKDF2-600k · AES-256-GCM). No accounts, no servers holding keys, no tracking.</div></div>
