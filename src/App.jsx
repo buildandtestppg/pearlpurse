@@ -481,6 +481,7 @@ export default function App() {
       )}
       {sheet === "send" && (
         <SendSheet
+          usdRate={prlUsd}
           onReceive={() => { setSheet("receive"); setPendingURI(null); }}
           prefill={pendingURI}
           wallet={wallet}
@@ -531,6 +532,7 @@ function Welcome({ onCreate, onImport, onWatch }) {
   const [err, setErr] = useState("");
   const [created, setCreated] = useState("");
   const [copied, setCopied] = useState(false);
+  const [seedHidden, setSeedHidden] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [pw, setPw] = useState("");
   const [pw2, setPw2] = useState("");
@@ -594,9 +596,14 @@ function Welcome({ onCreate, onImport, onWatch }) {
           </>
         ) : mode === "create" ? (
           <>
-            <div className="warn">⚠️ Write these 12 words on paper. No screenshots, no cloud. If you lose them, your PRL is gone forever.</div>
-            <div className="seed-box">{created}</div>
-            <button className="btn" onClick={() => { navigator.clipboard.writeText(created); setCopied(true); }}>{copied ? "Copied ✓" : "Copy words"}</button>
+            <div className="warn">⚠️ Write these 12 words on paper, in order. No screenshots, no cloud. If you lose them, your PRL is gone forever.</div>
+            <div className={"seed-grid" + (seedHidden ? " blurred" : "")}>
+              {created.split(" ").map((w, i) => <div className="seed-chip" key={i}><span className="n">{i + 1}</span><span className="w">{w}</span></div>)}
+            </div>
+            <div className="row2" style={{ maxWidth: 320, margin: "0 auto" }}>
+              <button className="btn ghost small" onClick={() => setSeedHidden(!seedHidden)}>{seedHidden ? "👁 Reveal" : "🙈 Hide"}</button>
+              <button className="btn ghost small" onClick={() => { navigator.clipboard.writeText(created); setCopied(true); }}>{copied ? "Copied ✓" : "Copy words"}</button>
+            </div>
             <label style={{ display: "flex", gap: 8, alignItems: "center", fontSize: 13, margin: "10px 2px" }}>
               <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
               I've saved my seed phrase somewhere safe
@@ -621,9 +628,26 @@ function Welcome({ onCreate, onImport, onWatch }) {
             {watchStore.load().length > 0 && (
               <button className="btn ghost" onClick={onWatch}>👁 Resume watching ({watchStore.load().length})</button>
             )}
-            <button className="btn primary" onClick={() => { const m = entropyToMnemonic(crypto.getRandomValues(new Uint8Array(16)), wordlist); setCreated(m); setMode("create"); }}>Create new wallet</button>
-            <button className="btn" onClick={() => setMode("import")}>Import seed phrase</button>
-            <button className="btn ghost" onClick={() => setMode("watch")}>👁 Watch an address (read-only)</button>
+            <div className="choice-row">
+              <button className="choice primary-choice" onClick={() => { const m = entropyToMnemonic(crypto.getRandomValues(new Uint8Array(16)), wordlist); setCreated(m); setMode("create"); }}>
+                <span className="ch-ico">✨</span>
+                <span className="ch-t">Create wallet</span>
+                <span className="ch-d">New 12-word seed, generated on this device</span>
+              </button>
+            </div>
+            <div className="choice-row">
+              <button className="choice" onClick={() => setMode("import")}>
+                <span className="ch-ico">🔑</span>
+                <span className="ch-t">Import seed</span>
+                <span className="ch-d">Restore from words</span>
+              </button>
+              <button className="choice" onClick={() => setMode("watch")}>
+                <span className="ch-ico">👁</span>
+                <span className="ch-t">Watch only</span>
+                <span className="ch-d">Read-only view</span>
+              </button>
+            </div>
+            <div className="small" style={{ color: "var(--muted)", marginTop: 14 }}>Non-custodial: keys are generated and stored on this device only.</div>
           </>
         )}
       </div>
@@ -636,12 +660,13 @@ function ReceiveSheet({ address, onClose, notify }) {
   useEffect(() => { try { setQr(qrDataUrl("pearl:" + address, 7)); } catch (e) { setQr(""); } }, [address]);
   return (
     <Sheet title="Receive PRL" sub="Share your address — bech32m taproot" onClose={onClose}>
-      <div className="qr-wrap">{qr ? <img className="qr-card" src={qr} alt="address QR" width={190} height={190} /> : <div className="small">generating…</div>}</div>
-      <div className="copyline">
-        <input className="input mono" readOnly value={address} />
-        <button className="btn small" onClick={() => { navigator.clipboard.writeText(address); notify("Address copied"); }}>Copy</button>
+      <div className="recv-hero">
+        <div className="qr-wrap">{qr ? <img className="qr-card" src={qr} alt="address QR" width={190} height={190} /> : <div className="small">generating…</div>}</div>
+        <div className="recv-addr mono" onClick={() => { navigator.clipboard.writeText(address); notify("Address copied"); }}>{address}</div>
+        <div className="small" style={{ color: "var(--muted)" }}>tap address to copy · bech32m taproot</div>
       </div>
-      <div className="small mt8">Senders on exchanges must support bech32m (taproot) withdrawals.</div>
+      <button className="btn primary" style={{ width: "100%" }} onClick={() => { navigator.clipboard.writeText(address); notify("Address copied"); }}>Copy address</button>
+      <div className="small mt8" style={{ color: "var(--muted)", textAlign: "center" }}>Senders on exchanges must support bech32m (taproot) withdrawals.</div>
     </Sheet>
   );
 }
@@ -683,7 +708,7 @@ function TxDetailSheet({ tx, onClose, ourAddrs }) {
   );
 }
 
-function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill }) {
+function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill, usdRate }) {
   const [to, setTo] = useState(prefill?.addr || "");
   const uriNotes = [prefill?.label, prefill?.message].filter(Boolean);
   const [amount, setAmount] = useState(prefill?.amount || "");
@@ -788,10 +813,13 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
             <div className="kv"><span className="k">Rate</span><span className="mono">{effRate?.toFixed(5)} PRL/kB ({feeMode})</span></div>
           </div>
           {err && <div className="err">{err}</div>}
-          <div className="row2 mt16">
-            <button className="btn" onClick={() => setStage("form")}>Back</button>
-            <button className="btn primary" onClick={submit}>Confirm & send</button>
+          <div className="review-head">
+            <div className="rh-amount">{fmt(amtAtoms)} <span>PRL</span></div>
+            {usdRate != null && <div className="rh-usd">≈ ${(Number(amtAtoms) / 1e8 * usdRate).toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>}
+            <div className="rh-to mono">{short(to, 12)}</div>
           </div>
+          <button className="btn primary" style={{ width: "100%", marginTop: 14 }} onClick={submit}>Confirm &amp; send</button>
+          <button className="btn ghost" style={{ width: "100%", marginTop: 8 }} onClick={() => setStage("form")}>Back</button>
         </>
       ) : feeAtoms && feeAtoms + 546n >= balance ? (
         (() => {
@@ -848,22 +876,33 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
             <input className="input mono" value={to} {...(prefill?.addr ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
           {prefill?.addr && <div className="small mt8">🔒 Recipient locked by payment link — verify it's who you expect before sending.</div>}
           </div>
-          <div className="field">
-            <label>Amount (PRL)</label>
-            <input className="input" type="number" inputMode="decimal" step="any" value={amount} onChange={(e) => { setMaxActive(false); setAmount(e.target.value); }} placeholder="0.00" />
+          <div className="amount-display">
+            <div className="ad-label">You send</div>
+            <div className="ad-input-row">
+              <span className="ad-cur">PRL</span>
+              <input className="ad-input" type="number" inputMode="decimal" step="any" value={amount} onChange={(e) => { setMaxActive(false); setAmount(e.target.value); }} placeholder="0" />
+            </div>
+            {usdRate != null && <div className="ad-usd">≈ ${(Number(amount || 0) * usdRate).toLocaleString("en-US", { maximumFractionDigits: 2 })}</div>}
           </div>
-          <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "4px 2px 4px" }}>
-            <span>Available: {fmt(balance)} PRL</span>
-            <button className="btn ghost small" style={{ padding: "4px 10px" }} onClick={() => setMaxActive(true)} disabled={!effRate} title={effRate ? "Send full balance (minus fee)" : "estimating fee…"}>MAX</button>
+          <div className="avail-row">
+            <span className="small">Available <b>{fmt(balance)}</b> PRL</span>
+            <button className="maxbtn" onClick={() => setMaxActive(true)} disabled={!effRate}>MAX</button>
           </div>
-          <div className="small" style={{ display: "flex", justifyContent: "space-between", margin: "0 2px 12px" }}>
-            <span>Fee: {feeAtoms ? fmt(feeAtoms) : "…"} PRL</span>
-            <span style={{ display: "inline-flex", gap: 4 }}>
-              {[["slow","🐢 Slow"],["std","⚡ Std"],["fast","🚀 Fast"]].map(([m,label]) => (
-                <button key={m} className={"btn ghost small" + (feeMode===m ? " on" : "")} style={{ padding: "4px 8px" }} onClick={() => setFeeMode(m)}>{label}</button>
-              ))}
-            </span>
+          <div className="section-label" style={{ margin: "12px 2px 6px" }}>Speed</div>
+          <div className="feecards">
+            {[["slow","🐢","Slow","~5 blocks"],["std","⚡","Standard","~2 blocks"],["fast","🚀","Fast","next block"]].map(([m, ico, label, tgt]) => {
+              const rate = feeForModeRate(m); const fee = rate ? feeAtomsForRate(rate) : null;
+              return (
+                <button key={m} className={"feecard" + (feeMode === m ? " on" : "")} onClick={() => setFeeMode(m)}>
+                  <span className="fc-ico">{ico}</span>
+                  <span className="fc-t">{label}</span>
+                  <span className="fc-fee">{fee != null ? fmt(fee) : "…"} PRL</span>
+                  <span className="fc-tgt">{tgt}</span>
+                </button>
+              );
+            })}
           </div>
+          <div className="small" style={{ color: "var(--muted)", margin: "6px 2px 2px" }}>Fee: {feeAtoms ? fmt(feeAtoms) : "…"} PRL · ~194s blocks</div>
           {err && <div className="err">{err}</div>}
           <button className="btn primary" onClick={() => {
             setErr("");
