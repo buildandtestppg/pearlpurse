@@ -124,6 +124,7 @@ export default function App() {
   const [toast, setToast] = useState("");
   const [watching, setWatching] = useState(null); // { label, address } — read-only view
   const [backup, setBackup] = useState(bkStore.load());
+  const [tab, setTab] = useState("home");
   const [contacts, setContacts] = useState(book.load());
   const [watchData, setWatchData] = useState(null);
   // watch-only: fetch + refresh on pearlpurse:refresh events
