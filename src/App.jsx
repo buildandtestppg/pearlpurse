@@ -125,8 +125,20 @@ export default function App() {
   const [watching, setWatching] = useState(null); // { label, address } — read-only view
   const [backup, setBackup] = useState(bkStore.load());
   const [tab, setTab] = useState("home");
+  const [hideBal, setHideBal] = useState(false);
+  const [prlUsd, setPrlUsd] = useState(null);
   const [contacts, setContacts] = useState(book.load());
   const [watchData, setWatchData] = useState(null);
+  // PRL→USD rate for balance context (best-effort via prlstats relay)
+  useEffect(() => {
+    let dead = false;
+    fetch("/api/prlstats/api/difficulty").then(r => r.ok ? r.json() : null).then(j => {
+      const px = j && (j.prl_price_usd ?? j.priceUsd ?? j.price_usd);
+      if (!dead && typeof px === "number") setPrlUsd(px);
+    }).catch(() => {});
+    return () => { dead = true; };
+  }, []);
+
   // watch-only: fetch + refresh on pearlpurse:refresh events
   useEffect(() => {
     if (!watching) { setWatchData(null); return; }
@@ -348,12 +360,19 @@ export default function App() {
         <div className="net-pill">{data ? "SYNCED" : busy ? "…" : "OFFLINE"}</div>
       </div>
 
-      <div className="hero">
+      <div className="hero" onClick={() => setHideBal(!hideBal)} role="button" aria-label="Toggle balance visibility">
         <div className="label">Available balance</div>
-        <div className="balance bal">
-          {data ? fmt(data.confirmed) : "—"}<span className="cur">PRL</span>
-        </div>
-        {data && data.pending !== 0n && <div className="pending">{fmt(data.pending)} PRL pending</div>}
+        {data ? (
+          <>
+            <div className="balance bal">{hideBal ? "•••••" : fmt(data.confirmed)}<span className="cur">{hideBal ? "" : "PRL"}</span></div>
+            {!hideBal && prlUsd != null && Number(data.confirmed) > 0n && (
+              <div className="usd">≈ ${(Number(data.confirmed) / 1e8 * prlUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+            )}
+            {data.pending !== 0n && <div className="pending">{fmt(data.pending)} PRL pending</div>}
+          </>
+        ) : (
+          <div className="skel-balance" aria-label="loading" />
+        )}
       </div>
 
       <div className="actions">
@@ -371,7 +390,7 @@ export default function App() {
       <div className="section-label">Activity</div>
       <div className="card">
         {!data || data.txs.length === 0 ? (
-          <div className="center small" style={{ padding: "14px 0" }}><img src="/empty-sea.webp" alt="" style={{ width: 168, margin: "6px auto 10px", display: "block", opacity: 0.9, borderRadius: 14 }} /><div style={{ color: "var(--muted)" }}>The sea is calm — no transactions yet.</div></div>
+          <div className="center small empty-tap" style={{ padding: "14px 0", cursor: "pointer" }} onClick={() => openSheet("receive")}><img src="/empty-sea.webp" alt="" style={{ width: 168, margin: "6px auto 10px", display: "block", opacity: 0.9, borderRadius: 14 }} /><div style={{ color: "var(--muted)" }}>The sea is calm — no transactions yet.</div><div className="empty-cta">⬇ Receive your first PRL</div></div>
         ) : (
           <div className="txlist">
             {data.txs.map((t) => (
@@ -437,11 +456,13 @@ export default function App() {
       </div>
       </>)}
 
+      <div key={tab} className="tabpane">
       <nav className="tabbar">
         <button className={"tb" + (tab === "home" ? " on" : "")} onClick={() => setTab("home")}><span className="tico">🫧</span><span>Home</span></button>
         <button className={"tb" + (tab === "tools" ? " on" : "")} onClick={() => setTab("tools")}><span className="tico">✦</span><span>Tools</span></button>
         <button className={"tb" + (tab === "account" ? " on" : "")} onClick={() => setTab("account")}><span className="tico">⚙️</span><span>Account</span></button>
       </nav>
+      </div>
 
       {sheet === "safety" && <SafetySheet wallet={wallet} backup={backup} onBackup={setBackup} onClose={() => setSheet(null)} notify={notify} />}}
       {sheet === "proof" && <ProofSheet wallet={wallet} data={data} onClose={() => setSheet(null)} notify={notify} />}

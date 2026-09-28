@@ -201,3 +201,15 @@ svg.qr { background: #fff; padding: 8px; border-radius: 12px; }
 
 /* overlay wrapper for sheets (positioning layer) */
 .overlay { position: fixed; inset: 0; z-index: 60; display: flex; align-items: flex-end; justify-content: center; }
+
+/* ── v0.5.1 UX: skeleton loader, usd context, tab transitions ── */
+.skel-balance { width: 200px; height: 46px; margin: 4px auto; border-radius: 12px;
+  background: linear-gradient(100deg, rgba(255,255,255,0.05) 30%, rgba(255,255,255,0.12) 50%, rgba(255,255,255,0.05) 70%);
+  background-size: 200% 100%; animation: shimmer 1.4s linear infinite; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.hero .usd { color: var(--muted); font-size: 13px; margin-top: 2px; letter-spacing: 0.3px; }
+.empty-cta { color: var(--green); font-weight: 600; margin-top: 8px; font-size: 13px; opacity: 0; transition: opacity 0.25s ease; }
+.empty-tap:hover .empty-cta, .empty-tap:active .empty-cta { opacity: 1; }
+.tabpane { animation: tab-in 0.26s cubic-bezier(0.2, 0.9, 0.3, 1); }
+@keyframes tab-in { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+@media (prefers-reduced-motion: reduce) { .tabpane, .skel-balance { animation: none; } .empty-tap .empty-cta { opacity: 1; } }
