@@ -12,6 +12,7 @@ Last updated: **v0.4.10** (Sep 27, 2026). Live page: **/roadmap**.
 | v0.4.5–4.6 | Honest fee UX, MAX-button correctness (browser-proven), network-aware "can't send yet" advisory with slow-mode escape hatch |
 | v0.4.7 | Real fee curve (1/2/5-block targets from the chain, multiplier model demoted to fallback), live network status in-app |
 | v0.4.8 | Sign/verify messages (Schnorr proof-of-address), PWA install (manifest + icons), strict CSP + security headers |
+| v0.5.1 | UX pass: shimmer skeleton loader for balance, USD context line (live PRL price via prlstats), tap-to-hide balance for privacy in public, tab switch transitions, interactive empty state (tap the oyster → receive) |
 | v0.5.0 | 🌊 FULL APP REDESIGN: bottom tab navigation (Home/Tools/Account), glass depth system (backdrop blur, specular edges, inner shadows), living ocean backdrop, redesigned sheets as grab-handle drawers, tool grid with glow icons, balance glass-orb card, SYNCED pulse. Home tab = balance + activity only; tools/account moved to tabs |
 | v0.4.23 | Revamp batch 3 (final): get-started + roadmap art bands, iridescent CTA sheen (reduced-motion safe), gradient balance display, microcap section labels, card hover lift. Vision verdict: product-grade, ship-ready, zero default-styled elements |
 | v0.4.22 | Typography revamp: self-hosted Space Grotesk variable font (22KB woff2, CSP-clean, zero external font requests) across all six surfaces — home, app, get-started, security, roadmap, verify |
