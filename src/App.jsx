@@ -509,6 +509,7 @@ function Welcome({ onCreate, onImport, onWatch }) {
     <div className="app">
       <div className="welcome">
         <img className="logo-big" src="/pearl.svg" alt="" />
+          <img src="/empty-sea.webp" alt="" style={{ width: 168, borderRadius: 16, opacity: 0.9, display: "block", margin: "0 auto 4px" }} />
         <h1>PearlPurse</h1>
         <p>A non-custodial wallet for Pearl.<br />Keys live on this device only.</p>
 
