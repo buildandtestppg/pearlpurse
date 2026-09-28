@@ -11,6 +11,14 @@
 <meta property="og:title" content="PearlPurse — the wallet for Pearl (PRL)" />
 <meta property="og:description" content="Non-custodial, open-source, installable. Your keys never leave your device." />
 <meta property="og:type" content="website" />
+  <meta property="og:image" content="https://pearlpurse.vercel.app/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="A luminous pearl resting on a dark seabed — PearlPurse, the wallet for Pearl" />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="PearlPurse — the wallet for Pearl (PRL)" />
+  <meta name="twitter:description" content="Non-custodial, open-source, installable. Your keys never leave your device." />
+  <meta name="twitter:image" content="https://pearlpurse.vercel.app/og.png" />
 <style>
   :root { --bg:#202727; --card:#2a3333; --card2:#313a3a; --border:#3c4444; --text:#f2f4ef; --muted:#a8b3ad; --green:#cde986; --sky:#8fd4db; }
   * { box-sizing:border-box; margin:0; padding:0; }
@@ -21,6 +29,11 @@
   .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; }
   .logo img { width:34px; height:34px; }
   .top a.l { color:var(--muted); font-size:13.5px; text-decoration:none; } .top a.l:hover { color:var(--green); }
+  .hero { position:relative; }
+  .hero-bg { position:absolute; right:-40px; top:-70px; width:56%; max-width:760px; height:calc(100% + 140px); object-fit:cover; object-position:right center; opacity:0.5; pointer-events:none;
+    -webkit-mask-image:linear-gradient(to left, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%); mask-image:linear-gradient(to left, rgba(0,0,0,1) 55%, rgba(0,0,0,0) 100%);
+    -webkit-mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 45%); mask-image:linear-gradient(to right, rgba(0,0,0,0) 0%, rgba(0,0,0,1) 45%); }
+  .hero h1, .hero p, .hero .cta, .hero .stats, .hero .live, .hero .srcnote { position:relative; z-index:1; }
   .hero h1 { font-size:40px; letter-spacing:-1px; line-height:1.1; margin-bottom:16px; }
   .hero h1 .g { color:var(--green); }
   .hero p { color:var(--muted); font-size:17px; max-width:34em; margin-bottom:26px; }
@@ -38,7 +51,7 @@
   .live .dot { display:inline-block; width:8px; height:8px; border-radius:50%; background:var(--green); margin-right:6px; animation:pulse 2s infinite; }
   @keyframes pulse { 0%,100% {opacity:1;} 50% {opacity:0.35;} }
   .grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin-bottom:30px; }
-  @media (max-width:560px) { .grid { grid-template-columns:1fr; } .hero h1 { font-size:32px; } .cta.ghost { margin-left:0; margin-top:10px; } }
+  @media (max-width:560px) { .grid { grid-template-columns:1fr; } .hero h1 { font-size:32px; } .cta.ghost { margin-left:0; margin-top:10px; } .hero-bg { width:100%; right:0; top:-40px; opacity:0.32; } }
   .f { background:var(--card); border:1px solid var(--border); border-radius:16px; padding:16px; }
   .f b.t { display:flex; align-items:center; gap:8px; margin-bottom:6px; font-size:15px; }
   .f .d { color:var(--muted); font-size:13.5px; }
@@ -55,7 +68,8 @@
     <a class="l" href="/roadmap">Roadmap ↗</a>
   </div>
 
-  <div class="hero">
+  <div class="hero hero-art">
+    <img class="hero-bg" src="/hero.webp" alt="" aria-hidden="true" />
     <h1>A wallet for <span class="g">Pearl</span>.</h1>
     <p>Send and receive PRL, prove address ownership with a signature, and install it as a real app on your phone. Non-custodial, open-source, installable as an app — your keys never leave your device.</p>
     <a class="cta" href="/app">Open the wallet</a><a class="cta ghost" href="/get-started">Get started</a>
