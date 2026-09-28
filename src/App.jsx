@@ -391,9 +391,6 @@ export default function App() {
 
 
       {tab === "home" && (<>
-      <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("receive")}>Receive</button>
-      </div>
           <div className="section-label" style={{ marginTop: 16 }}>Watching</div>
           <div className="card">
             {watchStore.load().map((w) => (
@@ -442,7 +439,7 @@ export default function App() {
 
       <nav className="tabbar">
         <button className={"tb" + (tab === "home" ? " on" : "")} onClick={() => setTab("home")}><span className="tico">🫧</span><span>Home</span></button>
-        <button className={"tb" + (tab === "tools" ? " on" : "")} onClick={() => setTab("tools")}><span className="tico">🧰</span><span>Tools</span></button>
+        <button className={"tb" + (tab === "tools" ? " on" : "")} onClick={() => setTab("tools")}><span className="tico">✦</span><span>Tools</span></button>
         <button className={"tb" + (tab === "account" ? " on" : "")} onClick={() => setTab("account")}><span className="tico">⚙️</span><span>Account</span></button>
       </nav>
 
