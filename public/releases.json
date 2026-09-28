@@ -68,5 +68,13 @@
     "date": "2026-09-27T08:12:19Z",
     "tag": "v0.4.18",
     "commit": "1b97f83"
+  },
+  {
+    "version": "0.4.19",
+    "bundle": "app-DfXwyQX3.js",
+    "sha256": "e86100a8a33785ba2aa0bdca846eae6a3d82d533b705127f394b5296c3c6f5a3",
+    "date": "2026-09-28T01:54:33Z",
+    "tag": "v0.4.19",
+    "commit": "3758a47"
   }
 ]
