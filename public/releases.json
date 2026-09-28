@@ -100,5 +100,13 @@
     "date": "2026-09-28T05:23:14Z",
     "tag": "v0.4.22",
     "commit": "605d196"
+  },
+  {
+    "version": "0.4.23",
+    "bundle": "app-Cnf4XWvq.js",
+    "sha256": "e727ab22b9a3ea42f424cccb2ba1eaa196b3fb9100d622191f49c5053b4c1962",
+    "date": "2026-09-28T07:02:16Z",
+    "tag": "v0.4.23",
+    "commit": "e72d487"
   }
 ]
