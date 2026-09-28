@@ -259,7 +259,7 @@ export default function App() {
 
   if (locked) {
     return (
-      <div className="app">
+      <div className="app"><div className="ocean" aria-hidden="true"></div>
         <div className="welcome">
           <img className="logo-big" src="/pearl.svg" alt="" />
           <div style={{ position: "relative", marginBottom: 6 }}>
@@ -282,7 +282,7 @@ export default function App() {
   if (!wallet) {
     if (watching) {
       return (
-        <div className="app">
+        <div className="app"><div className="ocean" aria-hidden="true"></div>
           <div style={{ textAlign: "center", margin: "10px 0 16px" }}>
             <img src="/pearl.svg" alt="" style={{ width: 40, opacity: 0.9 }} />
             <div className="small" style={{ color: "var(--muted)", marginTop: 6 }}>PearlPurse · watch-only mode</div>
@@ -335,7 +335,7 @@ export default function App() {
   }
 
   return (
-    <div className="app">
+    <div className="app"><div className="ocean" aria-hidden="true"></div>
       <div className="topbar">
         <div className="brand">
           <img src="/pearl.svg" alt="" />
@@ -365,7 +365,8 @@ export default function App() {
 
       {error && <div className="err">{error}</div>}
 
-      {watching && <WatchPanel watching={watching} watchData={watchData} setWatching={setWatching} short={short} fmt={fmt} />}
+      {tab === "home" && watching && <WatchPanel watching={watching} watchData={watchData} setWatching={setWatching} short={short} fmt={fmt} />}
+      {tab === "home" && (<>
       <div className="section-label">Activity</div>
       <div className="card">
         {!data || data.txs.length === 0 ? (
@@ -385,34 +386,13 @@ export default function App() {
           </div>
         )}
       </div>
+</>)}
 
-      <div className="section-label">Account</div>
-      <div className="card">
-        <div className="kv"><span className="k">Address</span><span className="mono" style={{ fontSize: 11 }}>{short(wallet.address)}</span></div>
-        <div className="kv"><span className="k">Derivation</span><span className="mono" style={{ fontSize: 11 }}>m/86'/808276'/0'/0/{wallet.index}</span></div>
-        <div className="kv"><span className="k">Addresses</span><span>{data ? data.addresses.length : "—"} · rotate ↻</span></div>
-        <div className="kv"><span className="k">UTXOs</span><span>{data ? data.utxos.length : "—"}</span></div>
-        <div className="kv"><span className="k">Backup</span><span style={{ color: backup.at ? "var(--green)" : "#e5958f" }}>{backup.at ? (backup.kind === "file" ? "📁 file exported" : "✅ seed verified") + " · " + agoDays(backup.at) : "⚠️ never — at risk"}</span></div>
-        <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={rotateNow}>↻ New receive address</button>
-      </div>
 
+      {tab === "home" && (<>
       <div style={{ display: "flex", gap: 10, marginTop: 14 }}>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("receive")}>Receive</button>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("sign")}>✍️ Sign</button>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("verify")}>🔍 Verify</button>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => openSheet("receive")}>Receive</button>
       </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("book")}>📒 Address book ({contacts.length})</button>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("proof")}>🛡 Proof of funds</button>
-      </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => setSheet("safety")}>🔐 Safety check</button>
-      </div>
-      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
-        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
-      </div>
-      {(watchStore.load().length > 0 || watching) && (
-        <>
           <div className="section-label" style={{ marginTop: 16 }}>Watching</div>
           <div className="card">
             {watchStore.load().map((w) => (
@@ -427,10 +407,45 @@ export default function App() {
             ))}
             <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={() => setSheet("watchadd")}>＋ Watch another address</button>
           </div>
-        </>
-      )}
+      </>)}
 
-      {sheet === "safety" && <SafetySheet wallet={wallet} backup={backup} onBackup={setBackup} onClose={() => setSheet(null)} notify={notify} />}
+      {tab === "account" && (<>
+      <div className="section-label">Account</div>
+      <div className="card">
+        <div className="kv"><span className="k">Address</span><span className="mono" style={{ fontSize: 11 }}>{short(wallet.address)}</span></div>
+        <div className="kv"><span className="k">Derivation</span><span className="mono" style={{ fontSize: 11 }}>m/86'/808276'/0'/0/{wallet.index}</span></div>
+        <div className="kv"><span className="k">Addresses</span><span>{data ? data.addresses.length : "—"} · rotate ↻</span></div>
+        <div className="kv"><span className="k">UTXOs</span><span>{data ? data.utxos.length : "—"}</span></div>
+        <div className="kv"><span className="k">Backup</span><span style={{ color: backup.at ? "var(--green)" : "#e5958f" }}>{backup.at ? (backup.kind === "file" ? "📁 file exported" : "✅ seed verified") + " · " + agoDays(backup.at) : "⚠️ never — at risk"}</span></div>
+        <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={rotateNow}>↻ New receive address</button>
+      </div>
+      <div style={{ display: "flex", gap: 10, marginTop: 10 }}>
+        <button className="btn ghost small" style={{ flex: 1 }} onClick={() => { if (confirm("Wipe wallet from this device? You'll need your seed phrase to recover.")) { store.clear(); setWallet(null); setData(null); } }}>Wipe device</button>
+      </div>
+      </>)}
+
+      {tab === "tools" && (<>
+      <div className="section-label">Prove &amp; verify</div>
+      <div className="toolgrid">
+        <button className="tool" onClick={() => openSheet("sign")}><span className="tico">✍️</span><span>Sign message</span></button>
+        <button className="tool" onClick={() => openSheet("verify")}><span className="tico">🔍</span><span>Verify</span></button>
+        <button className="tool" onClick={() => setSheet("proof")}><span className="tico">🛡</span><span>Proof of funds</span></button>
+      </div>
+      <div className="section-label">Manage</div>
+      <div className="toolgrid">
+        <button className="tool" onClick={() => setSheet("book")}><span className="tico">📒</span><span>Address book</span></button>
+        <button className="tool" onClick={() => setSheet("safety")}><span className="tico">🔐</span><span>Safety check</span></button>
+        <button className="tool" onClick={() => setSheet("watchadd")}><span className="tico">👁</span><span>Watch address</span></button>
+      </div>
+      </>)}
+
+      <nav className="tabbar">
+        <button className={"tb" + (tab === "home" ? " on" : "")} onClick={() => setTab("home")}><span className="tico">🫧</span><span>Home</span></button>
+        <button className={"tb" + (tab === "tools" ? " on" : "")} onClick={() => setTab("tools")}><span className="tico">🧰</span><span>Tools</span></button>
+        <button className={"tb" + (tab === "account" ? " on" : "")} onClick={() => setTab("account")}><span className="tico">⚙️</span><span>Account</span></button>
+      </nav>
+
+      {sheet === "safety" && <SafetySheet wallet={wallet} backup={backup} onBackup={setBackup} onClose={() => setSheet(null)} notify={notify} />}}
       {sheet === "proof" && <ProofSheet wallet={wallet} data={data} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "watchadd" && <WatchAddSheet onAdded={(w) => { setSheet(null); setWatching(w); }} onClose={() => setSheet(null)} />}
       {sheet === "book" && <BookSheet contacts={contacts} onChange={setContacts} onSend={(addr, label) => { setPendingURI({ addr, label }); setSheet("send"); }} onClose={() => setSheet(null)} />}
@@ -506,7 +521,7 @@ function Welcome({ onCreate, onImport, onWatch }) {
   const [watchLabel, setWatchLabel] = useState("");
 
   return (
-    <div className="app">
+    <div className="app"><div className="ocean" aria-hidden="true"></div>
       <div className="welcome">
         <img className="logo-big" src="/pearl.svg" alt="" />
           <img src="/empty-sea.webp" alt="" style={{ width: 168, borderRadius: 16, opacity: 0.9, display: "block", margin: "0 auto 4px" }} />
@@ -1187,15 +1202,16 @@ function Sheet({ title, sub, onClose, children }) {
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
   return (
-    <div className="overlay" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+    <div className="overlay sheet-scrim" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className="sheet" ref={ref}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 12 }}>
+        <div className="grab" />
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", marginBottom: 12, paddingRight: 34 }}>
           <div>
             <h3>{title}</h3>
             {sub && <div className="sub" style={{ marginBottom: 0 }}>{sub}</div>}
           </div>
-          <button className="btn ghost small" onClick={onClose}>✕</button>
         </div>
+        <button className="x" onClick={onClose} aria-label="Close">✕</button>
         {children}
       </div>
     </div>
