@@ -1,3 +1,5 @@
+@font-face { font-family:"Space Grotesk"; src:url("/fonts/space-grotesk-latin.woff2") format("woff2"); font-weight:300 700; font-display:swap; }
+
 /* PearlPurse — Pearl native design tokens (extracted from @pearl/ui) */
 :root {
   --bg: #202727;          /* grey dark 3 */
@@ -14,7 +16,7 @@
 * { box-sizing: border-box; margin: 0; padding: 0; }
 html, body, #root { height: 100%; }
 body {
-  font-family: var(--font);
+  font-family:"Space Grotesk", var(--font);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
