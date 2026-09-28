@@ -6,6 +6,8 @@
 <title>PearlPurse — non-custodial web wallet for Pearl (PRL)</title>
 <meta name="description" content="Non-custodial web wallet for Pearl: taproot, open-source, installable. Send & receive PRL, sign proofs, install as an app. Your keys never leave your device." />
 <link rel="icon" type="image/svg+xml" href="/pearl.svg" />
+<link rel="preload" href="/fonts/space-grotesk-latin.woff2" as="font" type="font/woff2" crossorigin />
+<link rel="preload" href="/hero.webp" as="image" type="image/webp" />
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#202727" />
 <meta property="og:title" content="PearlPurse — the wallet for Pearl (PRL)" />
@@ -74,7 +76,7 @@
   </div>
 
   <div class="hero hero-art">
-    <img class="hero-bg" src="/hero.webp" alt="" aria-hidden="true" />
+    <img class="hero-bg" fetchpriority="high" src="/hero.webp" alt="" aria-hidden="true" />
     <h1>A wallet for <span class="g">Pearl</span>.</h1>
     <p>Send and receive PRL, prove address ownership with a signature, and install it as a real app on your phone. Non-custodial, open-source, installable as an app — your keys never leave your device.</p>
     <a class="cta" href="/app">Open the wallet</a><a class="cta ghost" href="/get-started">Get started</a>
