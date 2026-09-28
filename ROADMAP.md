@@ -12,6 +12,7 @@ Last updated: **v0.4.10** (Sep 27, 2026). Live page: **/roadmap**.
 | v0.4.5–4.6 | Honest fee UX, MAX-button correctness (browser-proven), network-aware "can't send yet" advisory with slow-mode escape hatch |
 | v0.4.7 | Real fee curve (1/2/5-block targets from the chain, multiplier model demoted to fallback), live network status in-app |
 | v0.4.8 | Sign/verify messages (Schnorr proof-of-address), PWA install (manifest + icons), strict CSP + security headers |
+| v0.4.19 | 🎨 Generated hero art: luminous pearl on dark seabed (AI image gen, palette-matched), masked right-side integration + og.png social card (1200×630) + twitter:card — link unfurls now show the pearl |
 | v0.4.18 | 🔐 Safety pack: recovery drill (3-of-12 words, randomized), encrypted vault backup export + restore test, backup status on account card. HOTFIX: seed import broken since v0.4.13 refactor — fixed with gap-limit resume |
 | v0.4.17 | 🛡 OTC proof-of-funds standard: standardized envelope (address + timestamp + confirmed balance, Schnorr-signed), standalone /verify page (100% client-side, zero network calls). Blockbook failover: relay serves ≤10-min stale data with X-Pearlpurse-Stale on upstream failure |
 | v0.4.15 | Home network strip upgraded: PRL price + network hashrate via prlstats.com relay (same-origin /api/prlstats, 5-min cache, attribution; difficulty now always populated) |
