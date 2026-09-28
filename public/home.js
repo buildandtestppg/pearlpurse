@@ -51,3 +51,8 @@
     })
     .catch(function () { set("st-status", "network status unavailable — wallet still works"); });
 })();
+
+// v0.5.3: mirror price into hero device card
+(function(){ var el = document.getElementById('df-price'); var st = document.getElementById('st-price');
+  if (el && st) { var apply = function(){ var t = st.textContent.trim(); if (t && t !== '—') el.textContent = t; };
+    new MutationObserver(apply).observe(st, { childList: true }); apply(); } })();

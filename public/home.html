@@ -28,7 +28,7 @@
   * { box-sizing:border-box; margin:0; padding:0; }
   html,body { height:100%; }
   body { font-family:"Space Grotesk", system-ui, sans-serif; background:var(--bg); color:var(--text); line-height:1.55; -webkit-font-smoothing:antialiased; }
-  .wrap { max-width:680px; margin:0 auto; padding:40px 22px 56px; }
+  .wrap { max-width:1120px; margin:0 auto; padding:40px 32px 56px; }
   .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:40px; }
   .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; }
   .logo img { width:34px; height:34px; }
@@ -66,6 +66,48 @@
   a { color:var(--green); }
   .install { background:var(--card2); border:1px dashed #4a5432; border-radius:14px; padding:14px 16px; font-size:13.5px; color:var(--muted); margin-bottom:30px; }
   .install b { color:var(--text); }
+
+  /* ═══ v0.5.3 design layer ═══ */
+  .hero2 { position: relative; display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 48px; align-items: center;
+    padding: 56px 0 40px; min-height: 540px; }
+  .eyebrow { display: inline-flex; align-items: center; gap: 8px; font-size: 11.5px; letter-spacing: 2.2px; text-transform: uppercase;
+    color: var(--green); border: 1px solid rgba(205,233,134,.3); background: rgba(205,233,134,.06); padding: 7px 14px; border-radius: 99px; margin-bottom: 22px; }
+  .hero2 h1 { font-size: 56px; line-height: 1.04; letter-spacing: -2px; margin-bottom: 20px; }
+  .hero2 .lede { font-size: 17px; color: var(--muted); max-width: 30em; margin-bottom: 28px; line-height: 1.6; }
+  .hero2 .ctas { display: flex; gap: 14px; flex-wrap: wrap; }
+  .hero2 .ctas .cta { font-size: 16px; padding: 15px 30px; }
+  .trustline { display: flex; gap: 22px; margin-top: 26px; font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+  .trustline b { color: var(--text); font-weight: 600; }
+
+  .device { position: relative; z-index: 2; justify-self: end; width: 286px; border-radius: 44px;
+    background: linear-gradient(160deg, #2e3a3a, #1b2424); padding: 12px 12px 20px;
+    border: 1px solid rgba(205,233,134,.16); box-shadow: 0 40px 90px rgba(0,0,0,.55), inset 0 1px 0 rgba(255,255,255,.09);
+    transform: rotate(2.5deg); }
+  .device .notch { width: 96px; height: 22px; background: #0c1212; border-radius: 99px; margin: 6px auto 12px; }
+  .device img { width: 100%; border-radius: 34px; display: block; }
+  .device .glow { position: absolute; inset: -14%; z-index: -1; background: radial-gradient(50% 55% at 50% 40%, rgba(205,233,134,.13), transparent 70%); }
+  .device-float { position: absolute; z-index: 3; background: rgba(26,35,35,.92); border: 1px solid rgba(205,233,134,.22); border-radius: 16px;
+    backdrop-filter: blur(12px); padding: 10px 16px; font-size: 13px; box-shadow: 0 14px 40px rgba(0,0,0,.4); }
+  .device-float.a { top: 110px; left: -92px; animation: floaty 6s ease-in-out infinite; }
+  .device-float.b { bottom: 120px; left: -70px; animation: floaty 7s ease-in-out 1.2s infinite; }
+  .device-float .t { font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); }
+  .device-float .v { font-weight: 700; font-size: 15px; margin-top: 2px; }
+  .device-float .v.g { color: var(--green); }
+  @keyframes floaty { 0%,100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-8px) rotate(-3deg); } }
+
+  .stats2 { display: grid; grid-template-columns: repeat(6, 1fr); gap: 1px; background: rgba(60,68,68,.5);
+    border: 1px solid var(--border); border-radius: 16px; overflow: hidden; margin: 26px 0 8px; }
+  .stats2 .st { background: rgba(32,39,39,.85); padding: 16px 14px; }
+  .stats2 .v { font-size: 17px; font-weight: 700; letter-spacing: -0.4px; font-variant-numeric: tabular-nums; }
+  .stats2 .k { font-size: 10px; letter-spacing: 1.6px; text-transform: uppercase; color: var(--muted); margin-top: 3px; }
+
+  @media (max-width: 880px) {
+    .hero2 { grid-template-columns: 1fr; min-height: 0; padding: 44px 0 8px; gap: 34px; }
+    .hero2 h1 { font-size: 40px; letter-spacing: -1.5px; }
+    .device { justify-self: center; transform: rotate(0deg); width: 260px; }
+    .device-float.a { left: -26px; } .device-float.b { left: -14px; }
+    .stats2 { grid-template-columns: repeat(3, 1fr); }
+  }
 </style>
 </head>
 <body>
@@ -75,18 +117,38 @@
     <a class="l" href="/roadmap">Roadmap ↗</a>
   </div>
 
-  <div class="hero hero-art">
+  <div class="hero hero-art hero2"><div class="hero2-copy">
     <img class="hero-bg" fetchpriority="high" src="/hero.webp" alt="" aria-hidden="true" />
-    <h1>A wallet for <span class="g">Pearl</span>.</h1>
-    <p>Send and receive PRL, prove address ownership with a signature, and install it as a real app on your phone. Non-custodial, open-source, installable as an app — your keys never leave your device.</p>
-    <a class="cta" href="/app">Open the wallet</a><a class="cta ghost" href="/get-started">Get started</a>
-    <div class="stats">
-      <div class="stat"><div class="v" id="st-block">—</div><div class="k">block height</div></div>
-      <div class="stat"><div class="v" id="st-fee">—</div><div class="k">typical fee</div></div>
-      <div class="stat"><div class="v" id="st-mempool">—</div><div class="k">mempool txs</div></div>
-      <div class="stat"><div class="v" id="st-diff">—</div><div class="k">difficulty</div></div>
-      <div class="stat"><div class="v" id="st-price">—</div><div class="k">PRL price</div></div>
-      <div class="stat"><div class="v" id="st-hash">—</div><div class="k">network hashrate</div></div>
+    <div class="eyebrow">🫧 non-custodial · open source · installable</div>
+    <h1>Your Pearl,<br /><span class="g">kept like treasure.</span></h1>
+    <p class="lede">The self-custodial wallet for Pearl (PRL). Send, receive, and prove your holdings — open-source, installable as an app, and your keys never leave your device.</p>
+    <div class="ctas">
+      <a class="cta" href="/app">Open the wallet</a>
+      <a class="cta ghost" href="/get-started">Get started</a>
+    </div>
+    <div class="trustline">
+      <span><b>100%</b> client-side</span>
+      <span><b>BIP86</b> taproot</span>
+      <span><b>Schnorr</b> sign &amp; verify</span>
+      <span><b>Reproducible</b> builds</span>
+    </div>
+    </div>
+    <div class="device">
+      <div class="glow"></div>
+      <div class="notch"></div>
+      <img src="/app-shot.png" alt="PearlPurse wallet home screen" />
+      <div class="device-float a"><div class="t">PRL price</div><div class="v g" id="df-price">$—</div></div>
+      <div class="device-float b"><div class="t">network</div><div class="v">🟢 synced</div></div>
+    </div>
+  </div>
+  <div class="shell">
+    <div class="stats2">
+      <div class="st"><div class="v" id="st-block">—</div><div class="k">block height</div></div>
+      <div class="st"><div class="v" id="st-fee">—</div><div class="k">typical fee</div></div>
+      <div class="st"><div class="v" id="st-mempool">—</div><div class="k">mempool txs</div></div>
+      <div class="st"><div class="v" id="st-diff">—</div><div class="k">difficulty</div></div>
+      <div class="st"><div class="v" id="st-price">—</div><div class="k">prl price</div></div>
+      <div class="st"><div class="v" id="st-hash">—</div><div class="k">hashrate</div></div>
     </div>
     <div class="live"><span class="dot"></span><span id="st-status">connecting to Pearl mainnet…</span></div>
     <div class="srcnote">price · hashrate · difficulty from <a href="https://prlstats.com" target="_blank" rel="noreferrer">prlstats.com</a> (BETA) — block · fees · mempool from <a href="https://blockbook.pearlresearch.ai" target="_blank" rel="noreferrer">blockbook</a>. Community-run sources, not official oracles.</div>
