@@ -873,7 +873,12 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
           )}
           <div className="field">
             <label>Recipient</label>
-            <input className="input mono" value={to} {...(prefill?.addr ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
+            <div className="recv-row">
+              <input className="input mono" style={{ flex: 1 }} value={to} {...(prefill?.addr ? { readOnly: true } : {})} onChange={(e) => setTo(e.target.value)} placeholder="prl1p…" />
+              {!prefill?.addr && (
+                <button type="button" className="field-ico" title="Paste from clipboard" onClick={async () => { try { const t = await navigator.clipboard.readText(); if (t) setTo(t.trim()); } catch (e) {} }}>📋</button>
+              )}
+            </div>
           {prefill?.addr && <div className="small mt8">🔒 Recipient locked by payment link — verify it's who you expect before sending.</div>}
           </div>
           <div className="amount-display">

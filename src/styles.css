@@ -276,3 +276,6 @@ svg.qr { background: #fff; padding: 8px; border-radius: 12px; }
 .qr-wrap { padding: 14px; background: #fff; border-radius: 20px; box-shadow: 0 14px 44px rgba(0,0,0,.4); }
 .recv-addr { font-size: 11px; color: var(--text); background: rgba(16,23,23,.6); border: 1px solid var(--border);
   border-radius: 10px; padding: 9px 12px; word-break: break-all; cursor: pointer; max-width: 100%; text-align: center; }
+
+.recv-row { display: flex; gap: 8px; align-items: stretch; }
+.field-ico { background: var(--glass-hi); border: 1px solid var(--border); border-radius: 13px; width: 46px; font-size: 17px; cursor: pointer; }
