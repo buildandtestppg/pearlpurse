@@ -262,6 +262,9 @@ export default function App() {
       <div className="app">
         <div className="welcome">
           <img className="logo-big" src="/pearl.svg" alt="" />
+          <div style={{ position: "relative", marginBottom: 6 }}>
+            <img src="/empty-sea.webp" alt="" style={{ width: 150, borderRadius: 16, opacity: 0.85, display: "block", margin: "0 auto" }} />
+          </div>
           <h1>🔒 PearlPurse</h1>
           <p>Enter your password to unlock.</p>
           <div className="field">
@@ -366,7 +369,7 @@ export default function App() {
       <div className="section-label">Activity</div>
       <div className="card">
         {!data || data.txs.length === 0 ? (
-          <div className="center small" style={{ padding: "14px 0" }}>No transactions yet</div>
+          <div className="center small" style={{ padding: "14px 0" }}><img src="/empty-sea.webp" alt="" style={{ width: 168, margin: "6px auto 10px", display: "block", opacity: 0.9, borderRadius: 14 }} /><div style={{ color: "var(--muted)" }}>The sea is calm — no transactions yet.</div></div>
         ) : (
           <div className="txlist">
             {data.txs.map((t) => (
