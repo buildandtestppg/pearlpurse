@@ -168,3 +168,48 @@ a.tx:hover .addr { color: var(--green); }
 
 /* fee-mode selector: selected state */
 .btn.ghost.on { border-color: var(--mint, #97fce4); color: var(--mint, #97fce4); }
+
+/* ── Pearl iridescence accent (subtle sheen on primary actions) ── */
+.btn.primary, .cta, button.btn.primary {
+  position: relative;
+  background-image: linear-gradient(135deg, #cde986 0%, #c2e9a2 38%, #d8f0b8 50%, #b8e6c0 62%, #cde986 100%);
+  background-size: 200% 200%;
+  animation: pearl-sheen 7s ease-in-out infinite;
+  border: 1px solid #d9f2b933;
+  text-shadow: 0 1px 0 #ffffff30;
+}
+@keyframes pearl-sheen {
+  0%, 100% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .btn.primary, .cta { animation: none; }
+}
+
+/* 2) balance display: bigger, gradient pearl text */
+.bal, .balance-big {
+  font-size: 40px;
+  font-weight: 700;
+  letter-spacing: -1px;
+  background: linear-gradient(120deg, #f2f4ef 30%, #cde986 60%, #8fd4db 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* 3) section labels: letterspaced microcaps */
+.section-label {
+  font-size: 11px;
+  letter-spacing: 1.6px;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: 0.9;
+}
+
+/* 4) cards: lift on hover (desktop) */
+@media (hover: hover) {
+  .card { transition: border-color .2s ease, transform .2s ease; }
+  .card:hover { border-color: #cde98655; transform: translateY(-1px); }
+}
+
+.balance.bal .cur { -webkit-text-fill-color: var(--green); font-size: 18px; font-weight: 700; margin-left: 6px; letter-spacing: 0; }

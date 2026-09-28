@@ -349,7 +349,7 @@ export default function App() {
 
       <div className="hero">
         <div className="label">Available balance</div>
-        <div className="balance">
+        <div className="balance bal">
           {data ? fmt(data.confirmed) : "—"}<span className="cur">PRL</span>
         </div>
         {data && data.pending !== 0n && <div className="pending">{fmt(data.pending)} PRL pending</div>}
