@@ -12,6 +12,7 @@ Last updated: **v0.4.10** (Sep 27, 2026). Live page: **/roadmap**.
 | v0.4.5–4.6 | Honest fee UX, MAX-button correctness (browser-proven), network-aware "can't send yet" advisory with slow-mode escape hatch |
 | v0.4.7 | Real fee curve (1/2/5-block targets from the chain, multiplier model demoted to fallback), live network status in-app |
 | v0.4.8 | Sign/verify messages (Schnorr proof-of-address), PWA install (manifest + icons), strict CSP + security headers |
+| v0.4.22 | Typography revamp: self-hosted Space Grotesk variable font (22KB woff2, CSP-clean, zero external font requests) across all six surfaces — home, app, get-started, security, roadmap, verify |
 | v0.4.21 | 🎨 Revamp batch 1: new PWA icon set (generated pearl icon — 192/512/maskable/apple-touch), app empty-state illustration (oyster, "The sea is calm"), welcome + lock screen art, security page oyster header. Vision-critiqued: "product-grade" |
 | v0.4.20 | Hero art cranked to full-bleed (pearl visible at first glance, left-gradient readability) + full-width pearl art band with tagline above install section |
 | v0.4.19 | 🎨 Generated hero art: luminous pearl on dark seabed (AI image gen, palette-matched), masked right-side integration + og.png social card (1200×630) + twitter:card — link unfurls now show the pearl |
