@@ -8,6 +8,7 @@ import { addressFromPriv, derivePriv, decodePearlAddress, buildTx, tweakXOnlyPub
 import { fetchWalletData, fetchWalletDataMulti, fetchAddressBasic, broadcastTx, getEstimateFee, getFeeCurve, getNetworkStatus, explorerTx, explorerAddr } from "./lib/blockbook.js";
 import { qrDataUrl } from "./lib/qr.js";
 import { seal, unseal } from "./lib/vault.js";
+import { IconKey, IconHome, IconTools, IconAccount, IconReceive, IconSend, IconPlus, IconSlow, IconStandard, IconFast, IconSign, IconVerify, IconShield, IconBook, IconEye, IconLock, IconCopy, IconRotate, IconIn, IconOut, IconCheck, IconClose, IconWarning, IconExternal, AddrAvatar, PearlSuccess } from "./icons.jsx";
 
 const ATOM = 100_000_000n;
 const agoDays = (ts) => {
@@ -107,6 +108,33 @@ const store = {
   save: (d) => localStorage.setItem(LS_KEY, JSON.stringify(d)),
   clear: () => localStorage.removeItem(LS_KEY),
 };
+
+// Animated balance: counts up from 0 (or previous) to target with ease-out.
+function CountUp({ value, fmtFn }) {
+  const [shown, setShown] = useState(0);
+  const prev = useRef(0);
+  useEffect(() => {
+    const target = Number(value);
+    if (!isFinite(target)) return;
+    const from = prev.current;
+    const t0 = performance.now();
+    const dur = Math.min(900, 350 + Math.log10(Math.max(target, 1) + 1) * 180);
+    let raf;
+    const tick = (t) => {
+      const p = Math.min(1, (t - t0) / dur);
+      const e = 1 - Math.pow(1 - p, 3);
+      const v = Math.round(from + (target - from) * e);
+      setShown(v);
+      if (p < 1) raf = requestAnimationFrame(tick); else prev.current = target;
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [value]);
+  return <>{fmtFn(BigInt(shown))}</>;
+}
+
+// light haptic where supported (no-op on desktop)
+const buzz = (ms = 8) => { try { navigator.vibrate && navigator.vibrate(ms); } catch {} };
 
 export default function App() {
   const [wallet, setWallet] = useState(null); // {mnemonic, address, index}
@@ -360,11 +388,11 @@ export default function App() {
         <div className="net-pill">{data ? "SYNCED" : busy ? "…" : "OFFLINE"}</div>
       </div>
 
-      <div className="hero" onClick={() => setHideBal(!hideBal)} role="button" aria-label="Toggle balance visibility">
+      <div className="hero" onClick={() => { buzz(6); setHideBal(!hideBal); }} role="button" aria-label="Toggle balance visibility">
         <div className="label">Available balance</div>
         {data ? (
           <>
-            <div className="balance bal">{hideBal ? "•••••" : fmt(data.confirmed)}<span className="cur">{hideBal ? "" : "PRL"}</span></div>
+            <div className="balance bal">{hideBal ? "•••••" : <CountUp value={Number(data.confirmed)} fmtFn={fmt} />}<span className="cur">{hideBal ? "" : "PRL"}</span></div>
             {!hideBal && prlUsd != null && Number(data.confirmed) > 0n && (
               <div className="usd">≈ ${(Number(data.confirmed) / 1e8 * prlUsd).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
             )}
@@ -376,11 +404,11 @@ export default function App() {
       </div>
 
       <div className="actions">
-        <button className="btn" onClick={() => openSheet("receive")}>⬇ Receive</button>
-        <button className="btn primary" onClick={() => openSheet("send")}>⬆ Send</button>
+        <button className="btn" onClick={() => openSheet("receive")}><IconReceive size={18} />&nbsp; Receive</button>
+        <button className="btn primary" onClick={() => openSheet("send")}><IconSend size={18} />&nbsp; Send</button>
       </div>
       <div className="home-more">
-        <button className="btn ghost small" onClick={() => openSheet("getprl")}>＋ Get PRL — how to fund this wallet</button>
+        <button className="btn ghost small" onClick={() => openSheet("getprl")}><IconPlus size={15} />&nbsp; Get PRL — how to fund this wallet</button>
       </div>
 
       {error && <div className="err">{error}</div>}
@@ -395,7 +423,7 @@ export default function App() {
           <div className="txlist">
             {data.txs.map((t) => (
               <div className="tx clickable" key={t.txid} onClick={() => setDetailTx(t)}>
-                <div className={"dir " + t.direction}>{t.direction === "in" ? "↘" : "↗"}</div>
+                <AddrAvatar address={t.direction === "in" ? (t.from || "coinbase") : (t.to || t.txid)} size={36} />
                 <div className="mid">
                   <div className="addr mono">{t.direction === "in" ? short(t.from || "coinbase") : short(t.to || t.txid)}</div>
                   <div className="sub">{t.confirmations > 0 ? `${t.confirmations.toLocaleString()} confs` : "pending"} · {new Date((t.blockTime || 0) * 1000).toLocaleDateString()}{txNote(t.txid) ? " · 📝 " + txNote(t.txid) : ""}</div>
@@ -414,7 +442,7 @@ export default function App() {
           <div className="card">
             {watchStore.load().map((w) => (
               <div className="tx clickable" key={w.address} onClick={() => setWatching(watching?.address === w.address ? null : w)} style={{ opacity: watching?.address === w.address ? 1 : 0.75 }}>
-                <div className="dir">👁</div>
+                <AddrAvatar address={w.address} size={36} />
                 <div className="mid">
                   <div className="addr">{w.label}</div>
                   <div className="sub mono">{short(w.address)}</div>
@@ -422,7 +450,7 @@ export default function App() {
                 <div className="amt">{watching?.address === w.address ? "▲" : "▼"}</div>
               </div>
             ))}
-            <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={() => setSheet("watchadd")}>＋ Watch another address</button>
+            <button className="btn ghost small" style={{ width: "100%", marginTop: 8 }} onClick={() => setSheet("watchadd")}><IconEye size={15} />&nbsp; Watch another address</button>
           </div>
       </>)}
 
@@ -444,23 +472,23 @@ export default function App() {
       {tab === "tools" && (<>
       <div className="section-label">Prove &amp; verify</div>
       <div className="toolgrid">
-        <button className="tool" onClick={() => openSheet("sign")}><span className="tico">✍️</span><span>Sign message</span></button>
-        <button className="tool" onClick={() => openSheet("verify")}><span className="tico">🔍</span><span>Verify</span></button>
-        <button className="tool" onClick={() => setSheet("proof")}><span className="tico">🛡</span><span>Proof of funds</span></button>
+        <button className="tool" onClick={() => openSheet("sign")}><span className="tico"><IconSign size={22} /></span><span>Sign message</span></button>
+        <button className="tool" onClick={() => openSheet("verify")}><span className="tico"><IconVerify size={22} /></span><span>Verify</span></button>
+        <button className="tool" onClick={() => setSheet("proof")}><span className="tico"><IconShield size={22} /></span><span>Proof of funds</span></button>
       </div>
       <div className="section-label">Manage</div>
       <div className="toolgrid">
-        <button className="tool" onClick={() => setSheet("book")}><span className="tico">📒</span><span>Address book</span></button>
-        <button className="tool" onClick={() => setSheet("safety")}><span className="tico">🔐</span><span>Safety check</span></button>
-        <button className="tool" onClick={() => setSheet("watchadd")}><span className="tico">👁</span><span>Watch address</span></button>
+        <button className="tool" onClick={() => setSheet("book")}><span className="tico"><IconBook size={22} /></span><span>Address book</span></button>
+        <button className="tool" onClick={() => setSheet("safety")}><span className="tico"><IconLock size={22} /></span><span>Safety check</span></button>
+        <button className="tool" onClick={() => setSheet("watchadd")}><span className="tico"><IconEye size={22} /></span><span>Watch address</span></button>
       </div>
       </>)}
 
       <div key={tab} className="tabpane">
       <nav className="tabbar">
-        <button className={"tb" + (tab === "home" ? " on" : "")} onClick={() => setTab("home")}><span className="tico">🫧</span><span>Home</span></button>
-        <button className={"tb" + (tab === "tools" ? " on" : "")} onClick={() => setTab("tools")}><span className="tico">✦</span><span>Tools</span></button>
-        <button className={"tb" + (tab === "account" ? " on" : "")} onClick={() => setTab("account")}><span className="tico">⚙️</span><span>Account</span></button>
+        <button className={"tb" + (tab === "home" ? " on" : "")} onClick={() => setTab("home")}><span className="tico"><IconHome size={21} /></span><span>Home</span></button>
+        <button className={"tb" + (tab === "tools" ? " on" : "")} onClick={() => setTab("tools")}><span className="tico"><IconTools size={21} /></span><span>Tools</span></button>
+        <button className={"tb" + (tab === "account" ? " on" : "")} onClick={() => setTab("account")}><span className="tico"><IconAccount size={21} /></span><span>Account</span></button>
       </nav>
       </div>
 
@@ -490,6 +518,7 @@ export default function App() {
           onClose={() => { setSheet(null); setPendingURI(null); }}
           onSent={async (hex) => {
             const r = await broadcastTx(hex);
+            buzz(14);
             notify("Broadcast — " + (r.result || "submitted"));
             setSheet(null);
             setTimeout(() => window.dispatchEvent(new Event("pearlpurse:refresh")), 100);
@@ -595,7 +624,7 @@ function Welcome({ onCreate, onImport, onWatch }) {
           </>
         ) : mode === "create" ? (
           <>
-            <div className="warn">⚠️ Write these 12 words on paper, in order. No screenshots, no cloud. If you lose them, your PRL is gone forever.</div>
+            <div className="warn"><IconWarning size={15} />&nbsp; Write these 12 words on paper, in order. No screenshots, no cloud. If you lose them, your PRL is gone forever.</div>
             <div className={"seed-grid" + (seedHidden ? " blurred" : "")}>
               {created.split(" ").map((w, i) => <div className="seed-chip" key={i}><span className="n">{i + 1}</span><span className="w">{w}</span></div>)}
             </div>
@@ -625,23 +654,23 @@ function Welcome({ onCreate, onImport, onWatch }) {
         ) : (
           <>
             {watchStore.load().length > 0 && (
-              <button className="btn ghost" onClick={onWatch}>👁 Resume watching ({watchStore.load().length})</button>
+              <button className="btn ghost" onClick={onWatch}><IconEye size={16} />&nbsp; Resume watching ({watchStore.load().length})</button>
             )}
             <div className="choice-row">
               <button className="choice primary-choice" onClick={() => { const m = entropyToMnemonic(crypto.getRandomValues(new Uint8Array(16)), wordlist); setCreated(m); setMode("create"); }}>
-                <span className="ch-ico">✨</span>
+                <span className="ch-ico"><IconPlus size={20} /></span>
                 <span className="ch-t">Create wallet</span>
                 <span className="ch-d">New 12-word seed, generated on this device</span>
               </button>
             </div>
             <div className="choice-row">
               <button className="choice" onClick={() => setMode("import")}>
-                <span className="ch-ico">🔑</span>
+                <span className="ch-ico"><IconKey /></span>
                 <span className="ch-t">Import seed</span>
                 <span className="ch-d">Restore from words</span>
               </button>
               <button className="choice" onClick={() => setMode("watch")}>
-                <span className="ch-ico">👁</span>
+                <span className="ch-ico"><IconEye size={20} /></span>
                 <span className="ch-t">Watch only</span>
                 <span className="ch-d">Read-only view</span>
               </button>
@@ -797,8 +826,9 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
     <Sheet title={stage === "sent" ? "Sent" : "Send PRL"} sub={stage === "form" ? "taproot key-path spend" : ""} onClose={onClose}>
       {stage === "sent" ? (
         <div className="success-anim">
-          <div className="check">✅</div>
-          <div className="mono small" style={{ wordBreak: "break-all", margin: "10px 0" }}>{txid || "submitted"}</div>
+          <PearlSuccess />
+          <div className="sent-title">Sent</div>
+          <div className="mono small" style={{ wordBreak: "break-all", margin: "8px 0 14px" }}>{txid || "submitted"}</div>
           <button className="btn primary" onClick={onClose}>Done</button>
         </div>
       ) : stage === "sending" ? (
@@ -822,7 +852,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
         </>
       ) : feeAtoms && feeAtoms + 546n >= balance ? (
         (() => {
-          const MODES = [["slow", "🐢 Slow", "~5 blocks"], ["std", "⚡ Standard", "~2 blocks"], ["fast", "🚀 Fast", "next block"]];
+          const MODES = [["slow", "Slow", "~5 blocks"], ["std", "Standard", "~2 blocks"], ["fast", "Fast", "next block"]];
           const withRates = MODES.map(([m, label, tgt]) => ({ m, label, tgt, rate: feeForModeRate(m) })).filter((x) => x.rate);
           const sendable = withRates.filter((x) => balance > feeAtomsForRate(x.rate) + 546n);
           const cheapest = withRates.slice().sort((a, b) => Number(feeAtomsForRate(a.rate) - feeAtomsForRate(b.rate)))[0];
@@ -894,7 +924,7 @@ function SendSheet({ wallet, utxos, balance, onClose, onSent, onReceive, prefill
           </div>
           <div className="section-label" style={{ margin: "12px 2px 6px" }}>Speed</div>
           <div className="feecards">
-            {[["slow","🐢","Slow","~5 blocks"],["std","⚡","Standard","~2 blocks"],["fast","🚀","Fast","next block"]].map(([m, ico, label, tgt]) => {
+            {[[ "slow", <IconSlow key="s" size={18} />, "Slow", "~5 blocks"], ["std", <IconStandard key="d" size={18} />, "Standard", "~2 blocks"], ["fast", <IconFast key="f" size={18} />, "Fast", "next block"]].map(([m, ico, label, tgt]) => {
               const rate = feeForModeRate(m); const fee = rate ? feeAtomsForRate(rate) : null;
               return (
                 <button key={m} className={"feecard" + (feeMode === m ? " on" : "")} onClick={() => setFeeMode(m)}>
@@ -1100,7 +1130,7 @@ function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
       </div>
 
       {!drill ? (
-        <button className="btn primary" style={{ width: "100%", marginBottom: 10 }} onClick={startDrill}>🏋️ Run recovery drill (3 words)</button>
+        <button className="btn primary" style={{ width: "100%", marginBottom: 10 }} onClick={startDrill}>Run recovery drill (3 words)</button>
       ) : drill.passed ? (
         <div className="card result-ok" style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 30 }}>✅</div>
@@ -1124,7 +1154,7 @@ function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
         </div>
       )}
 
-      <button className="btn" style={{ width: "100%", marginBottom: 10 }} onClick={exportVault}>📁 Export encrypted backup file</button>
+      <button className="btn" style={{ width: "100%", marginBottom: 10 }} onClick={exportVault}>Export encrypted backup file</button>
 
       {revealVault ? (
         <div className="card" style={{ marginBottom: 10 }}>
@@ -1143,7 +1173,7 @@ function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
           {vaultErr && <div className="err" style={{ marginTop: 8 }}>{vaultErr}</div>}
         </div>
       ) : (
-        <button className="btn ghost" style={{ width: "100%" }} onClick={() => setRevealVault(true)}>🧪 Test a backup file restores…</button>
+        <button className="btn ghost" style={{ width: "100%" }} onClick={() => setRevealVault(true)}>Test a backup file restores…</button>
       )}
     </Sheet>
   );

@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.8.0",
+    "bundle": "app-a6SzuLID.js",
+    "sha256": "9be039c7b9a2310198df54df961cf2a38a55d20c2116df0a986f762f6edd4ad4",
+    "date": "2026-09-29T11:27:16Z",
+    "tag": "v0.8.0",
+    "notes": "Wallet-feel pass: custom 24-grid SVG icon system (all emoji removed), deterministic gradient address avatars on tx+watch rows, balance count-up animation, spring sheet physics, pearl-drop send success moment, tab pop + press-scale, haptics on broadcast/tap"
+  },
+  {
     "version": "0.7.0",
     "bundle": "app-CoIETyV8.js",
     "sha256": "c36d445839dbee3b7caa69516af3443105ea8cfd26d84930f0db89943e01c7c9",
