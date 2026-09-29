@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.8.2",
+    "bundle": "app-Cc8s2tbu.js",
+    "sha256": "1187cf9292a469b5d7a73839bd4354ec51a2e0f7e23944d24f4fa60f7115cedd",
+    "date": "2026-09-29T12:55:06Z",
+    "tag": "v0.8.2",
+    "notes": "Homepage hero refreshed: device frame now shows the real v0.8 wallet (SVG icons, avatars, funded balance w/ live USD) \u2014 was a stale v0.5 screenshot"
+  },
+  {
     "version": "0.8.1",
     "bundle": "app-Cc8s2tbu.js",
     "sha256": "1187cf9292a469b5d7a73839bd4354ec51a2e0f7e23944d24f4fa60f7115cedd",
