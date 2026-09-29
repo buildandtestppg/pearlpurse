@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.7.0",
+    "bundle": "app-CoIETyV8.js",
+    "sha256": "c36d445839dbee3b7caa69516af3443105ea8cfd26d84930f0db89943e01c7c9",
+    "date": "2026-09-29T07:47:31Z",
+    "tag": "v0.7.0",
+    "notes": "iPhone-native rebuild: safe-area insets top/bottom, 16px inputs (kills iOS focus zoom), 48px touch targets, real spinner/success/toast states (were missing CSS), new lock+onboarding with generated pearl-in-oyster hero art, responsive type, JSX typo fix"
+  },
+  {
     "version": "0.4.9",
     "bundle": "index-D7Wv3ejN.js",
     "sha256": "e981dd4b8e2dcee1bd87e7c7612603a2be4cb3fa6fc2478453923a57a938908e",

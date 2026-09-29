@@ -272,21 +272,19 @@ export default function App() {
 
   if (locked) {
     return (
-      <div className="app"><div className="ocean" aria-hidden="true"></div>
-        <div className="welcome">
-          <img className="logo-big" src="/pearl.svg" alt="" />
-          <div style={{ position: "relative", marginBottom: 6 }}>
-            <img src="/empty-sea.webp" alt="" style={{ width: 150, borderRadius: 16, opacity: 0.85, display: "block", margin: "0 auto" }} />
-          </div>
-          <h1>🔒 PearlPurse</h1>
-          <p>Enter your password to unlock.</p>
+      <div className="gate"><div className="ocean" aria-hidden="true"></div>
+        <div className="gate-inner">
+          <img className="gate-hero" src="/pp-lock-hero.webp" alt="" />
+          <img className="gate-lock" src="/pearl.svg" alt="" />
+          <h1>PearlPurse</h1>
+          <p className="lede">Locked — enter your password to decrypt this wallet.</p>
           <div className="field">
             <input className="input" type="password" value={unlockPw} onChange={(e) => setUnlockPw(e.target.value)}
               placeholder="Password" onKeyDown={(e) => e.key === "Enter" && doUnlock()} />
           </div>
           {unlockErr && <div className="err">{unlockErr}</div>}
-          <button className="btn primary" disabled={unlockBusy} onClick={doUnlock}>{unlockBusy ? "Decrypting…" : "Unlock"}</button>
-          <button className="btn ghost" onClick={() => { if (confirm("Wipe vault? You'll need the 12-word seed to restore.")) { store.clear(); location.reload(); } }}>Forgot password</button>
+          <button className="btn primary full" disabled={unlockBusy} onClick={doUnlock}>{unlockBusy ? "Decrypting…" : "Unlock"}</button>
+          <button className="textbtn" onClick={() => { if (confirm("Wipe vault? You'll need the 12-word seed to restore.")) { store.clear(); location.reload(); } }}>Forgot password? Wipe & restore from seed</button>
         </div>
       </div>
     );
@@ -295,10 +293,12 @@ export default function App() {
   if (!wallet) {
     if (watching) {
       return (
-        <div className="app"><div className="ocean" aria-hidden="true"></div>
-          <div style={{ textAlign: "center", margin: "10px 0 16px" }}>
-            <img src="/pearl.svg" alt="" style={{ width: 40, opacity: 0.9 }} />
-            <div className="small" style={{ color: "var(--muted)", marginTop: 6 }}>PearlPurse · watch-only mode</div>
+        <div className="gate"><div className="ocean" aria-hidden="true"></div>
+          <div className="gate-inner" style={{ justifyContent: "flex-start" }}>
+            <div className="center" style={{ marginBottom: 18 }}>
+              <img src="/pearl.svg" alt="" style={{ width: 56, borderRadius: 16, border: "1px solid var(--border-hi)", boxShadow: "var(--shadow)" }} />
+              <div className="small" style={{ color: "var(--muted)", marginTop: 8 }}>PearlPurse · watch-only mode</div>
+            </div>
           </div>
           <WatchPanel watching={watching} watchData={watchData} setWatching={setWatching} short={short} fmt={fmt} />
           <button className="btn ghost small" style={{ width: "100%", marginTop: 4 }} onClick={() => setWatching(null)}>← Back</button>
@@ -379,7 +379,7 @@ export default function App() {
         <button className="btn" onClick={() => openSheet("receive")}>⬇ Receive</button>
         <button className="btn primary" onClick={() => openSheet("send")}>⬆ Send</button>
       </div>
-      <div style={{ textAlign: "center", margin: "-8px 0 10px" }}>
+      <div className="home-more">
         <button className="btn ghost small" onClick={() => openSheet("getprl")}>＋ Get PRL — how to fund this wallet</button>
       </div>
 
@@ -464,7 +464,7 @@ export default function App() {
       </nav>
       </div>
 
-      {sheet === "safety" && <SafetySheet wallet={wallet} backup={backup} onBackup={setBackup} onClose={() => setSheet(null)} notify={notify} />}}
+      {sheet === "safety" && <SafetySheet wallet={wallet} backup={backup} onBackup={setBackup} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "proof" && <ProofSheet wallet={wallet} data={data} onClose={() => setSheet(null)} notify={notify} />}
       {sheet === "watchadd" && <WatchAddSheet onAdded={(w) => { setSheet(null); setWatching(w); }} onClose={() => setSheet(null)} />}
       {sheet === "book" && <BookSheet contacts={contacts} onChange={setContacts} onSend={(addr, label) => { setPendingURI({ addr, label }); setSheet("send"); }} onClose={() => setSheet(null)} />}
@@ -498,7 +498,7 @@ export default function App() {
       )}
 
       {toast && (
-        <div style={{ position: "fixed", bottom: 26, left: "50%", transform: "translateX(-50%)", background: "var(--green)", color: "#1c231f", fontWeight: 700, fontSize: 13, padding: "10px 18px", borderRadius: 99, zIndex: 99 }}>
+        <div className="toast">
           {toast}
         </div>
       )}
@@ -542,12 +542,11 @@ function Welcome({ onCreate, onImport, onWatch }) {
   const [watchLabel, setWatchLabel] = useState("");
 
   return (
-    <div className="app"><div className="ocean" aria-hidden="true"></div>
-      <div className="welcome">
-        <img className="logo-big" src="/pearl.svg" alt="" />
-          <img src="/empty-sea.webp" alt="" style={{ width: 168, borderRadius: 16, opacity: 0.9, display: "block", margin: "0 auto 4px" }} />
+    <div className="gate"><div className="ocean" aria-hidden="true"></div>
+      <div className="gate-inner">
+        <img className="gate-hero" src="/pp-lock-hero.webp" alt="" />
         <h1>PearlPurse</h1>
-        <p>A non-custodial wallet for Pearl.<br />Keys live on this device only.</p>
+        <p className="lede">A non-custodial wallet for Pearl.<br />Keys live on this device only.</p>
 
         {mode === "import" ? (
           <>
@@ -656,7 +655,7 @@ function Welcome({ onCreate, onImport, onWatch }) {
 }
 
 function ReceiveSheet({ address, onClose, notify }) {
-  const [qr, setQr] = useState("");
+   const [qr, setQr] = useState("");
   useEffect(() => { try { setQr(qrDataUrl("pearl:" + address, 7)); } catch (e) { setQr(""); } }, [address]);
   return (
     <Sheet title="Receive PRL" sub="Share your address — bech32m taproot" onClose={onClose}>
@@ -1037,14 +1036,14 @@ function VerifySheet({ onClose }) {
       </div>
       <button className="btn primary" onClick={run} disabled={!addr.trim() || !msg.trim() || !sig.trim()}>🔍 Verify</button>
       {result === true && (
-        <div className="card" style={{ marginTop: 14, textAlign: "center", background: "#223026", borderColor: "#3f5a46" }}>
+        <div className="card result-ok" style={{ marginTop: 14 }}>
           <div style={{ fontSize: 34 }}>✅</div>
           <div style={{ fontWeight: 700 }}>Valid signature</div>
           <div className="small mt8">{short(addr)} signed this exact message.</div>
         </div>
       )}
       {result === false && (
-        <div className="err" style={{ marginTop: 14, textAlign: "center" }}>
+        <div className="err result-bad" style={{ marginTop: 14 }}>
           <div style={{ fontSize: 26 }}>❌</div>
           Invalid — address, message or signature doesn't match.
         </div>
@@ -1103,7 +1102,7 @@ function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
       {!drill ? (
         <button className="btn primary" style={{ width: "100%", marginBottom: 10 }} onClick={startDrill}>🏋️ Run recovery drill (3 words)</button>
       ) : drill.passed ? (
-        <div className="card" style={{ background: "#223026", borderColor: "#3f5a46", textAlign: "center", marginBottom: 10 }}>
+        <div className="card result-ok" style={{ marginBottom: 10 }}>
           <div style={{ fontSize: 30 }}>✅</div>
           <div style={{ fontWeight: 700 }}>Backup verified</div>
           <div className="small">Your paper backup works. Next drill in ~90 days.</div>
@@ -1176,7 +1175,7 @@ function ProofSheet({ wallet, data, onClose, notify }) {
         <button className="btn primary" style={{ width: "100%" }} disabled={busy} onClick={make}>{busy ? "Signing…" : "✍️ Sign proof"}</button>
       ) : (
         <>
-          <div className="card" style={{ background: "#223026", borderColor: "#3f5a46", marginBottom: 12, textAlign: "center" }}>
+          <div className="card result-ok" style={{ marginBottom: 12 }}>
             <div style={{ fontSize: 30 }}>✅</div>
             <div style={{ fontWeight: 700 }}>Proof signed</div>
             <div className="small">Send the envelope below to your counterparty.</div>
