@@ -1,18 +1,28 @@
 // Home page behaviour (CSP: external same-origin script).
-// 1) Returning users (vault present) skip marketing → straight into the wallet.
-//    Append ?stay to browse the home page anyway.
+// 1) Payment URIs (web+pearl handler lands with ?uri=) still jump straight
+//    into the wallet — stranding a payment link on the marketing page would
+//    break it. Everyone else always sees the homepage; if a vault exists we
+//    surface an "Open wallet" pill in the nav.
 // 2) Live network stats from the same-origin relay.
 (function () {
   try {
-    var vault = null;
+    if (/[?&]uri=/.test(location.search) && !/[?&]stay/.test(location.search)) {
+      location.replace("/app" + location.search);
+      return;
+    }
+    var vault = false;
     for (var i = 0; i < localStorage.length; i++) {
       if (localStorage.key(i).indexOf("pearlpurse") === 0) { vault = true; break; }
     }
-    if (vault && !/[?&]stay/.test(location.search)) {
-      // preserve payment URIs (web+pearl handler lands here with ?uri=) through the jump
-      var q = /[?&]uri=/.test(location.search) ? location.search : "";
-      location.replace("/app" + q);
-      return;
+    if (vault) {
+      var nav = document.querySelector(".top");
+      if (nav) {
+        var a = document.createElement("a");
+        a.className = "l open-wallet";
+        a.href = "/app";
+        a.textContent = "Open wallet →";
+        nav.appendChild(a);
+      }
     }
   } catch (e) { /* storage blocked — show marketing */ }
 

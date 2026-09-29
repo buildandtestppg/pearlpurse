@@ -29,7 +29,9 @@
   html,body { height:100%; }
   body { font-family:"Space Grotesk", system-ui, sans-serif; background:var(--bg); color:var(--text); line-height:1.55; -webkit-font-smoothing:antialiased; }
   .wrap { max-width:1120px; margin:0 auto; padding:40px 32px 56px; }
-  .top { display:flex; align-items:center; justify-content:space-between; margin-bottom:40px; }
+  .top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 40px; }
+  .nav-r { display: flex; align-items: center; gap: 18px; }
+  .open-wallet-slot, .top .open-wallet { color: var(--green); font-weight: 700; }
   .logo { display:flex; align-items:center; gap:10px; font-weight:700; font-size:17px; }
   .logo img { width:34px; height:34px; }
   .top a.l { color:var(--muted); font-size:13.5px; text-decoration:none; } .top a.l:hover { color:var(--green); }
@@ -159,7 +161,7 @@
 <div class="wrap">
   <div class="top">
     <div class="logo"><img src="/pearl.svg" alt="PearlPurse" /> PearlPurse</div>
-    <a class="l" href="/roadmap">Roadmap ↗</a>
+    <div class="nav-r"><a class="l open-wallet-slot" href="/app" hidden>Open wallet →</a><a class="l" href="/roadmap">Roadmap ↗</a></div>
   </div>
 
   <div class="hero hero-art hero2"><div class="hero2-copy">

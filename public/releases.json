@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.8.3",
+    "bundle": "app-Cc8s2tbu.js",
+    "sha256": "1187cf9292a469b5d7a73839bd4354ec51a2e0f7e23944d24f4fa60f7115cedd",
+    "date": "2026-09-29T13:10:07Z",
+    "tag": "v0.8.3",
+    "notes": "Homepage no longer auto-redirects vault users to /app \u2014 marketing page always renders, Open wallet link in nav. ?uri= payment links still jump."
+  },
+  {
     "version": "0.8.2",
     "bundle": "app-Cc8s2tbu.js",
     "sha256": "1187cf9292a469b5d7a73839bd4354ec51a2e0f7e23944d24f4fa60f7115cedd",
