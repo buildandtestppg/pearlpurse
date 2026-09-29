@@ -1089,6 +1089,19 @@ function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
   const [vaultFile, setVaultFile] = useState(null);
   const [vaultErr, setVaultErr] = useState("");
 
+  // Recovery-phrase reveal: password re-check against the vault, then blurred 12-word grid
+  const [showSeed, setShowSeed] = useState(false);
+  const [seedPw, setSeedPw] = useState("");
+  const [seedErr, setSeedErr] = useState("");
+  const [seedOk, setSeedOk] = useState(false);
+  const [seedHidden, setSeedHidden] = useState(true);
+  const [seedCopied, setSeedCopied] = useState(false);
+  const verifySeedPw = async () => {
+    setSeedErr("");
+    try { await unseal(store.load().vault, seedPw); setSeedOk(true); setSeedPw(""); setSeedHidden(true); }
+    catch { setSeedErr("Wrong password"); }
+  };
+
   // Recovery drill: user retypes 3 random of their 12 words; verified locally against the live mnemonic.
   const startDrill = () => {
     const idx = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11].sort(() => Math.random() - 0.5).slice(0, 3);
@@ -1155,6 +1168,37 @@ function SafetySheet({ wallet, backup, onBackup, onClose, notify }) {
       )}
 
       <button className="btn" style={{ width: "100%", marginBottom: 10 }} onClick={exportVault}>Export encrypted backup file</button>
+
+      {/* ── reveal recovery phrase ── */}
+      {!showSeed ? (
+        <button className="btn ghost" style={{ width: "100%", marginBottom: 10 }} onClick={() => setShowSeed(true)}>Show recovery phrase</button>
+      ) : !seedOk ? (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="small" style={{ marginBottom: 8 }}><b>Re-enter your password</b> to reveal your 12-word recovery phrase on this device.</div>
+          <div className="field" style={{ marginBottom: 8 }}>
+            <input className="input" type="password" value={seedPw} onChange={(e) => setSeedPw(e.target.value)}
+              placeholder="Password" onKeyDown={(e) => e.key === "Enter" && verifySeedPw()} />
+          </div>
+          {seedErr && <div className="err">{seedErr}</div>}
+          <div className="row2">
+            <button className="btn" onClick={() => { setShowSeed(false); setSeedErr(""); setSeedPw(""); }}>Cancel</button>
+            <button className="btn primary" onClick={verifySeedPw} disabled={!seedPw}>Reveal phrase</button>
+          </div>
+        </div>
+      ) : (
+        <div className="card" style={{ marginBottom: 10 }}>
+          <div className="warn" style={{ marginBottom: 12 }}><IconWarning size={15} />&nbsp; Never type these words into any website or share them with anyone — including "support". Anyone with these words controls your PRL. Screenshots and cloud sync leak them.</div>
+          <div className={"seed-grid" + (seedHidden ? " blurred" : "")}>
+            {wallet.mnemonic.split(" ").map((w, i) => <div className="seed-chip" key={i}><span className="n">{i + 1}</span><span className="w">{w}</span></div>)}
+          </div>
+          <div className="row2">
+            <button className="btn ghost small" onClick={() => setSeedHidden(!seedHidden)}>{seedHidden ? "Reveal words" : "Hide words"}</button>
+            <button className="btn ghost small" onClick={() => { navigator.clipboard.writeText(wallet.mnemonic); setSeedCopied(true); setTimeout(() => setSeedCopied(false), 1600); }}>{seedCopied ? "Copied ✓" : "Copy words"}</button>
+          </div>
+          <div className="small mt8" style={{ color: "var(--muted)", textAlign: "center" }}>Anyone holding these 12 words can steal your funds. Clear your clipboard after use.</div>
+          <button className="btn small" style={{ width: "100%", marginTop: 10 }} onClick={() => { setShowSeed(false); setSeedOk(false); }}>Hide phrase &amp; lock away</button>
+        </div>
+      )}
 
       {revealVault ? (
         <div className="card" style={{ marginBottom: 10 }}>

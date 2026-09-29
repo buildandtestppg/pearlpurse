@@ -1,5 +1,13 @@
 [
   {
+    "version": "0.8.1",
+    "bundle": "app-Cc8s2tbu.js",
+    "sha256": "1187cf9292a469b5d7a73839bd4354ec51a2e0f7e23944d24f4fa60f7115cedd",
+    "date": "2026-09-29T12:45:00Z",
+    "tag": "v0.8.1",
+    "notes": "Recovery-phrase reveal in Safety check: password re-check against vault, blurred 12-word grid, hide/copy controls, full never-share warning"
+  },
+  {
     "version": "0.8.0",
     "bundle": "app-a6SzuLID.js",
     "sha256": "9be039c7b9a2310198df54df961cf2a38a55d20c2116df0a986f762f6edd4ad4",
